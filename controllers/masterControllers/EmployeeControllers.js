@@ -4,10 +4,10 @@ const bcrypt = require('bcrypt');
 // Create Employee
 exports.createEmployee = async (req, res) => {
   try {
-    const { employeeCode, employeeName, employeeEmail, employeePhone, employeeRole, employeeAddress, password } = req.body;
+    const { EmployeeCode, EmployeeName, employeeEmail, employeePhone, employeeRole, employeeAddress, password } = req.body;
 
     // Check for existing email or code
-    const existing = await Employee.findOne({ $or: [{ employeeEmail }, { employeeCode }] });
+    const existing = await Employee.findOne({ $or: [{ employeeEmail }, { EmployeeCode }] });
     if (existing) {
       return res.status(400).json({ message: 'Employee email or code already exists' });
     }
@@ -15,8 +15,8 @@ exports.createEmployee = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newEmployee = new Employee({
-      employeeCode,
-      employeeName,
+      EmployeeCode,
+      EmployeeName,
       employeeEmail,
       employeePhone,
       employeeRole,
@@ -35,7 +35,7 @@ exports.createEmployee = async (req, res) => {
 // Get All Employees (optional filter by active)
 exports.getAllEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find({ status: 'active' }).select('-password');
+    const employees = await Employee.find({ isActive: true }).select('-password');
     res.status(200).json({ data: employees });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching employees', error: error.message });
@@ -57,12 +57,12 @@ exports.getEmployeeById = async (req, res) => {
 // Update Employee
 exports.updateEmployee = async (req, res) => {
   try {
-    const { employeeName, employeeEmail, employeePhone, employeeRole, employeeAddress } = req.body;
+    const { EmployeeName, employeeEmail, employeePhone, employeeRole, employeeAddress } = req.body;
 
     const updated = await Employee.findByIdAndUpdate(
       req.params.id,
       {
-        employeeName,
+        EmployeeName,
         employeeEmail,
         employeePhone,
         employeeRole,

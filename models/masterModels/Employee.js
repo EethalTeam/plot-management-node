@@ -32,10 +32,9 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  status: {
-    type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
+  isActive: {
+    type: Boolean,
+    default: true
   },
 }, { timestamps: true });
 

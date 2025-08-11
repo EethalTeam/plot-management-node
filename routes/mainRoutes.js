@@ -3,6 +3,8 @@ const router = express.Router();
 const LogControllers = require('../controllers/mainControllers/ActivityLogControllers')
 const MenuControllers = require('../controllers/mainControllers/MenuControllers')
 const UserRightsControllers = require('../controllers/mainControllers/UserRightsControllers')
+const VisitorControllers = require('../controllers/mainControllers/VisitorControllers')
+const PlotControllers = require('../controllers/mainControllers/PlotControllers')
 
 router.post('/Log/getAllLogs', LogControllers.getAllLogs )
 router.post('/Log/getFilteredLogs', LogControllers.getFilteredLogs )
@@ -22,5 +24,27 @@ router.post('/UserRights/createUserRights', UserRightsControllers.createUserRigh
 router.post('/UserRights/updateUserRights', UserRightsControllers.updateUserRights)
 router.post('/UserRights/getAllMenus', UserRightsControllers.getAllMenus)
 router.post('/UserRights/getAllEmployees', UserRightsControllers.getAllEmployees)
+
+router.post('/Visitor/getAllVisitor', VisitorControllers.getAllVisitors)
+router.post('/Visitor/createVisitor', VisitorControllers.createVisitor)
+router.post('/Visitor/updateVisitor', VisitorControllers.updateVisitor)
+router.post('/Visitor/getAllPlots', VisitorControllers.getAllPlots)
+router.post('/Visitor/getAllStatus', VisitorControllers.getAllStatus)
+router.post('/Visitor/getAllEmployees', VisitorControllers.getAllEmployees)
+router.post('/Visitor/addFollowUp', VisitorControllers.addFollowUp)
+router.post('/Visitor/updateFollowUp', VisitorControllers.updateFollowUp)
+router.post('/Visitor/getVisitorFollowUps', VisitorControllers.getVisitorFollowUps)
+router.post('/Visitor/addPlotToVisitor', VisitorControllers.addPlotToVisitor)
+router.post('/Visitor/updateVisitorPlot', VisitorControllers.updateVisitorPlot)
+router.post('/Visitor/getVisitorPlots', VisitorControllers.getVisitorPlots)
+
+router.post('/Plot/getAllPlots', PlotControllers.getAllPlots)
+router.post('/Plot/createPlot', PlotControllers.createPlot)
+router.post('/Plot/updatePlot', PlotControllers.updatePlot)
+router.post('/Plot/deletePlots', PlotControllers.deletePlot)
+router.post('/Plot/getAllStatus', PlotControllers.getAllStatus)
+router.post('/Plot/getAllUnits', PlotControllers.getAllUnits)
+router.post('/Plot/getAllVisitors', PlotControllers.getAllVisitors)
+router.post('/Plot/updatePlotStatus', PlotControllers.updatePlotStatus)
 
 module.exports = router;

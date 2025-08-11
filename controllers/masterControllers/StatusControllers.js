@@ -24,7 +24,7 @@ exports.createStatus = async (req, res) => {
 };
 
 // Get all active statuses
-exports.getAllStatuses = async (req, res) => {
+exports.getAllStatus = async (req, res) => {
   try {
     const statuses = await Status.find({ isActive: true }).sort({ createdAt: -1 });
     res.status(200).json({ data: statuses });
@@ -36,16 +36,12 @@ exports.getAllStatuses = async (req, res) => {
 // Update a status by ID
 exports.updateStatus = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { _id } = req.body;
     const { statusName, description, colorCode } = req.body;
 
     const updated = await Status.findByIdAndUpdate(
-      id,
-      {
-        ...(statusName && { statusName: statusName.trim() }),
-        ...(description && { description }),
-        ...(colorCode && { colorCode }),
-      },
+      _id,
+      {statusName,colorCode},
       { new: true }
     );
 

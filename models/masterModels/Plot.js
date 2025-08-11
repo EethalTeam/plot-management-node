@@ -6,6 +6,11 @@ const plotSchema = new mongoose.Schema({
     ref: "Unit",
     required: true,
   },
+  plotCode: {
+    type: String,
+    unique: true,
+    trim: true,
+  },
   plotNumber: {
     type: String,
     required: true,
@@ -26,10 +31,11 @@ const plotSchema = new mongoose.Schema({
     enum: ["East", "West", "North", "South", "NE", "NW", "SE", "SW"],
   },
 
-  statusId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Status",
-  },
+statusId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Status",
+  default: new mongoose.Types.ObjectId('6889bcf6080f330c24ba0521')
+},
 
   soldDate: {
     type: Date,
@@ -63,6 +69,34 @@ const plotSchema = new mongoose.Schema({
     type: Date,
   },
 
+  visitDetails: [
+    {
+      visitedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Visitor",
+        required: true,
+        unique:true
+      },
+      visitedDate: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
+
+  interestDetails: [
+    {
+      interestedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Visitor",
+        required: true
+      },
+      interestDate: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
   gateway: {
     type: String,
   },

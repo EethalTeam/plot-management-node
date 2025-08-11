@@ -1,35 +1,31 @@
 const mongoose = require("mongoose");
 
 const followUpSchema = new mongoose.Schema({
-  followUpDate: { type: Date, required: true }, // Timestamp for follow-up
+  followUpDate: { type: Date}, // Timestamp for follow-up
   followUpStatus: {
     type: String,
     enum: ["Pending", "Completed"],
     default: "Pending"
   },
-  followedUpBy: {
+  followedUpById: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Employee",
-    required: true
+    ref: "Employee"
   },
-  description: { type: String }, 
+  followUpDescription: { type: String }, 
   notes: { type: String },       
   remarks: { type: String }      
-}, { _id: false });
+});
 
 const visitorPlotSchema = new mongoose.Schema({
   plotId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Plot",
-    required: true
+    ref: "Plot"
   },
   statusId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Status",
-    required: true
+    ref: "Status"
   },
-  timestamp: { type: Date, default: Date.now },
-  followUps: [followUpSchema]
+  timestamp: { type: Date, default: Date.now } 
 }, { _id: false });
 
 const visitorSchema = new mongoose.Schema({
@@ -39,16 +35,20 @@ const visitorSchema = new mongoose.Schema({
   visitorMobile: { type: String, required: true },
   visitorWhatsApp: { type: String },
   visitorPhone: { type: String },
+  cityId:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "City"
+  },
   visitorAddress: { type: String },
   isActive: { type: Boolean, default: true },
   feedback: { type: String },
   description: { type: String },
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Employee",
-    required: true
+    ref: "Employee"
   },
-  plots: [visitorPlotSchema]
+  plots: [visitorPlotSchema],
+  followUps: [followUpSchema]
 }, {
   timestamps: true
 });

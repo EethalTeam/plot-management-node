@@ -2,12 +2,12 @@ const mongoose = require("mongoose");
 
 const unitSchema = new mongoose.Schema(
   {
-    unitName: {
+    UnitName: {
       type: String,
       required: true,
       trim: true,
     },
-    unitCode: {
+    UnitCode: {
       type: String,
       required: true,
       unique: true,
@@ -19,7 +19,7 @@ const unitSchema = new mongoose.Schema(
       enum: ["Residential", "Commercial", "Mixed Use", "Layout"],
       default: "Residential",
     },
-    unitLocation: {
+    UnitLocation: {
       type: String,
       trim: true,
     },
