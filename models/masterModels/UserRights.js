@@ -58,8 +58,7 @@ const userRightsSchema = new mongoose.Schema({
   },
   unitId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Unit',
-    required: true
+    ref: 'Unit'
   },
   menus: [menuPermissionSchema] // Embedded array of menu permissions
 }, { timestamps: true });

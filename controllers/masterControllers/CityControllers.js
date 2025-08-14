@@ -43,7 +43,15 @@ if (!existingSTate) {
 exports.getAllCitys = async (req, res) => {
     try {
         //option 1 aggregate method
-        const city= await City.aggregate([{
+        const {StateID} = req.body
+        let filter={}
+        if(StateID){
+            filter.StateID=new mongoose.Types.ObjectId(StateID)
+        }
+        console.log(filter,"filter")
+        const city= await City.aggregate([
+            {$match:filter},
+            {
             $lookup:{
                 from:'states',
                 localField:'StateID',
@@ -70,6 +78,8 @@ exports.getAllCitys = async (req, res) => {
             }
         }
     ])
+    // const city = City.find({filter})
+    console.log(city,"")
         res.status(200).json(city);
     } catch (error) {
         res.status(500).json({ message: error.message });

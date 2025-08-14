@@ -5,6 +5,7 @@ const MenuControllers = require('../controllers/mainControllers/MenuControllers'
 const UserRightsControllers = require('../controllers/mainControllers/UserRightsControllers')
 const VisitorControllers = require('../controllers/mainControllers/VisitorControllers')
 const PlotControllers = require('../controllers/mainControllers/PlotControllers')
+const DashBoardStats = require('../controllers/mainControllers/DashBoardStats')
 
 router.post('/Log/getAllLogs', LogControllers.getAllLogs )
 router.post('/Log/getFilteredLogs', LogControllers.getFilteredLogs )
@@ -46,5 +47,11 @@ router.post('/Plot/getAllStatus', PlotControllers.getAllStatus)
 router.post('/Plot/getAllUnits', PlotControllers.getAllUnits)
 router.post('/Plot/getAllVisitors', PlotControllers.getAllVisitors)
 router.post('/Plot/updatePlotStatus', PlotControllers.updatePlotStatus)
+
+router.post('/DashBoardStats', DashBoardStats.getDashboardStats)
+router.post('/getPendingFollowUps', VisitorControllers.getPendingFollowUpsByEmployee)
+router.post('/getCompletedFollowUps', VisitorControllers.getCompletedFollowUpsByEmployee)
+
+router.post('/transferFollowUps', VisitorControllers.transferFollowUps)
 
 module.exports = router;

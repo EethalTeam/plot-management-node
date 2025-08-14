@@ -2,7 +2,7 @@ const Visitor = require("../../models/masterModels/Visitor");
 const Plots = require('../../models/masterModels/Plot')
 const Status = require('../../models/masterModels/Status')
 const Employees = require('../../models/masterModels/Employee')
-
+const mongoose = require("mongoose");
 
 const STATUS_IDS = {
   Available: "6889bcf6080f330c24ba0521",
@@ -16,7 +16,7 @@ const STATUS_IDS = {
 // Create Visitor
 exports.createVisitor = async (req, res) => {
   try {
-    const {visitorName,visitorEmail,visitorMobile,visitorWhatsApp,visitorPhone,cityId,visitorAddress,feedback,description,employeeId,statusId,notes,remarks} = req.body
+    const {visitorName,visitorEmail,visitorMobile,visitorWhatsApp,visitorPhone,cityId,visitorAddress,feedback,description,employeeId,statusId,followUpDate, followUpDescription, followUpStatus, notes, remarks, followedUpById} = req.body
     const latestVisitor = await Visitor.findOne({})
           .sort({ visitorCode: -1 })
           .select("visitorCode");
@@ -29,7 +29,6 @@ exports.createVisitor = async (req, res) => {
           const nextNumber = numberPart + 1;
           newCode = "VIS" + nextNumber.toString().padStart(5, "0"); 
         }
-        console.log(visitorName,newCode,"code")
     const visitor = new Visitor({
       visitorCode:newCode,
 visitorName,
@@ -43,8 +42,13 @@ feedback,
 description,
 employeeId,
 statusId,
-notes,
-remarks
+followUps:{
+followUpDate, 
+followUpDescription, 
+followUpStatus, 
+notes, 
+remarks, 
+followedUpById}
     });
     const savedVisitor = await visitor.save();
     res.status(201).json({ success: true, data: savedVisitor });
@@ -56,9 +60,22 @@ remarks
 // Get All Visitors
 exports.getAllVisitors = async (req, res) => {
   try {
-    const visitors = await Visitor.find({ isActive: true })
+    const {employeeId} = req.body
+    const employee=Employees.findOne({_id:employeeId})
+    const filter ={isActive: true}
+    if(employee.employeeRole === 'agent'){
+         filter.employeeId = employeeId
+    }
+    const visitors = await Visitor.find(filter)
       .populate("employeeId", "EmployeeName")
-      .populate("cityId","CityCode CityName")
+      .populate({
+        path:"cityId",
+        select:"CityCode CityName StateID",
+        populate:{
+          path:"StateID",
+          select:"StateCode StateName"
+        }
+      })
       .populate({
     path: "plots.plotId",
     select: "plotCode plotNumber unitId",
@@ -98,10 +115,10 @@ exports.getVisitorById = async (req, res) => {
 // Update Visitor
 exports.updateVisitor = async (req, res) => {
   try {
-    const { id, ...updateData } = req.body;
+    const { _id, ...updateData } = req.body;
 
     const updatedVisitor = await Visitor.findByIdAndUpdate(
-      id,
+      _id,
       updateData,
       { new: true }
     );
@@ -363,7 +380,12 @@ exports.getAllStatus = async (req, res) => {
 
 exports.getAllEmployees = async (req, res) => {
   try {
-    const employees = await Employees.find({})
+    const {employeeId} = req.body
+    let filter={}
+    if(employeeId){
+      filter._id = {$ne:new mongoose.Types.ObjectId(employeeId)}
+    }
+    const employees = await Employees.find(filter)
 
     if (!employees) return res.status(404).json({ message: "Employees not found" });
 
@@ -479,6 +501,219 @@ exports.getVisitorFollowUps = async (req, res) => {
     res.status(200).json({ followUps: visitor.followUps });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+exports.transferFollowUps = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { fromEmployeeID, toEmployeeID } = req.body;
+
+    if (!fromEmployeeID || !toEmployeeID) {
+      return res.status(400).json({ message: "Both fromEmployeeId and toEmployeeId are required" });
+    }
+
+    if (fromEmployeeID === toEmployeeID) {
+      return res.status(400).json({ message: "Source and target employee cannot be the same" });
+    }
+
+    const fromId = new mongoose.Types.ObjectId(fromEmployeeID);
+    const toId = new mongoose.Types.ObjectId(toEmployeeID);
+
+    // Find all visitors who have followUps with the given fromEmployeeId
+    const visitors = await Visitor.find(
+      { "followUps.followedUpById": fromId },
+      { followUps: 1 }
+    ).session(session);
+
+    if (visitors.length === 0) {
+      return res.status(404).json({ message: "No follow-ups found for the given employee" });
+    }
+
+    // Update each visitor's followUps
+    for (const visitor of visitors) {
+      let modified = false;
+
+      visitor.followUps.forEach(fu => {
+        if (fu.followedUpById && fu.followedUpById.equals(fromId)) {
+          fu.followedUpById = toId;
+          modified = true;
+        }
+      });
+
+      if (modified) {
+        visitor.markModified("followUps"); // Ensure Mongoose detects the array change
+        await visitor.save({ session });
+      }
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      message: "Follow-ups transferred successfully",
+      transferredCount: visitors.length
+    });
+
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error transferring follow-ups:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+exports.getPendingFollowUpsByEmployee = async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+
+    if (!employeeId) {
+      return res.status(400).json({ message: "employeeId is required" });
+    }
+
+    // Fetch employee role
+    const employee = await Employees.findById(employeeId).select("employeeRole");
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    // Date range for today
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Build match condition
+    let matchCondition = {
+      "followUps.followUpStatus": "Pending",
+      "followUps.followUpDate": { $gte: startOfDay, $lte: endOfDay }
+    };
+
+    if (employee.employeeRole === "agent") {
+      matchCondition["followUps.followedUpById"] = new mongoose.Types.ObjectId(employeeId);
+    }
+
+    const pendingFollowUps = await Visitor.aggregate([
+      { $unwind: "$followUps" },
+
+      { $match: matchCondition },
+
+      {
+        $lookup: {
+          from: "employees",
+          localField: "followUps.followedUpById",
+          foreignField: "_id",
+          as: "employeeDetails"
+        }
+      },
+      { $unwind: { path: "$employeeDetails", preserveNullAndEmptyArrays: true } },
+
+      {
+        $project: {
+          _id: 0,
+          visitorId: "$_id",
+          visitorName: 1,
+          visitorMobile: 1,
+          followUpDate: "$followUps.followUpDate",
+          followUpStatus: "$followUps.followUpStatus",
+          followUpDescription: "$followUps.followUpDescription",
+          notes: "$followUps.notes",
+          remarks: "$followUps.remarks",
+          employeeName: "$employeeDetails.employeeName",
+          employeeRole: "$employeeDetails.employeeRole"
+        }
+      },
+
+      { $sort: { followUpDate: 1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: pendingFollowUps.length,
+      data: pendingFollowUps
+    });
+
+  } catch (error) {
+    console.error("Error fetching pending follow-ups:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.getCompletedFollowUpsByEmployee = async (req, res) => {
+  try {
+    const { employeeId } = req.body; 
+
+    if (!employeeId) {
+      return res.status(400).json({ message: "employeeId is required" });
+    }
+
+    const employee = await Employees.findById(employeeId).select("employeeRole");
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // Build match condition
+    let matchCondition = {
+      "followUps.followUpStatus": "Completed",
+      "followUps.followUpDate": { $gte: startOfToday, $lte: endOfToday }
+    };
+
+    if (employee.employeeRole === "agent") {
+      matchCondition["followUps.followedUpById"] = new mongoose.Types.ObjectId(employeeId);
+    }
+
+    const completedFollowUps = await Visitor.aggregate([
+      { $unwind: "$followUps" },
+
+      { $match: matchCondition },
+
+      {
+        $lookup: {
+          from: "employees",
+          localField: "followUps.followedUpById",
+          foreignField: "_id",
+          as: "employeeDetails"
+        }
+      },
+      { $unwind: { path: "$employeeDetails", preserveNullAndEmptyArrays: true } },
+
+      {
+        $project: {
+          _id: 0,
+          visitorId: "$_id",
+          visitorName: 1,
+          visitorMobile: 1,
+          followUpDate: "$followUps.followUpDate",
+          followUpStatus: "$followUps.followUpStatus",
+          followUpDescription: "$followUps.followUpDescription",
+          notes: "$followUps.notes",
+          remarks: "$followUps.remarks",
+          employeeName: "$employeeDetails.employeeName",
+          employeeRole: "$employeeDetails.employeeRole"
+        }
+      },
+
+      { $sort: { followUpDate: 1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: completedFollowUps.length,
+      data: completedFollowUps
+    });
+
+  } catch (error) {
+    console.error("Error fetching completed follow-ups:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 

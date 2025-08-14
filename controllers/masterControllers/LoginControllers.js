@@ -58,7 +58,7 @@ exports.verifyLogin = async (req, res) => {
         EmployeeCode: user.EmployeeCode,
         password: user.password,
         lastLogin: lastLoginFormatted,
-        role: user.role,
+        role: user.employeeRole,
         token,
         tokenExpiry: "7 days",
       },

@@ -147,21 +147,15 @@ exports.getUserRightsByEmployee = async (req, res) => {
 exports.getAllUserRights = async (req, res) => {
   try {
     const allUserRights = await UserRights.find({})
-      .populate("employeeId", "_id EmployeeName unitId")
+      .populate("employeeId", "_id EmployeeName EmployeeCode employeeRole")
       .lean();
 
     const results = [];
 
     for (const userRight of allUserRights) {
       const employee = userRight.employeeId;
-
       // fetch unit details
-      const employeeDoc = await Employee.findById(employee._id)
-        .populate("unitId", "_id UnitName")
-        .lean();
-
-      const unitId = employeeDoc.unitId?._id || null;
-      const UnitName = employeeDoc.unitId?.UnitName || null;
+      // const employeeDoc = await Employee.findById(employee._id)
 
       // Merge menus into tree format
       const mergedMenus = userRight.menus;
@@ -179,12 +173,12 @@ exports.getAllUserRights = async (req, res) => {
         _id:userRight._id,
         employeeId: employee._id,
         employeeName: employee.EmployeeName,
-        unitId,
-        UnitName,
+        employeeCode: employee.EmployeeCode,
+        employeeRole: employee.employeeRole,
         menus: buildMenuResponseTree(filteredMenus)
       });
     }
-
+console.log(results,"results")
     return res.status(200).json(results);
   } catch (error) {
     console.error(error);
@@ -282,21 +276,8 @@ exports.deleteUserRight = async (req, res) => {
 
 exports.getAllMenus = async (req, res) => {
   try {
-    const { unitId } = req.body;
-
-    if (!unitId) {
-      return res.status(400).json({
-        message: "unitId is required in the request body."
-      });
-    }
-
-    // Step 1 → Fetch menus accessible to the unitId
+    const {  } = req.body;
     const menus = await MenuRegistry.find({
-      $or: [
-        // { unitAccess: { $exists: false } },
-        // { unitAccess: { $size: 0 } },
-        { unitAccess: new mongoose.Types.ObjectId(unitId) }
-      ],
       isActive: true
     })
       .populate("unitAccess", "_id UnitName")
@@ -331,8 +312,8 @@ exports.getAllMenus = async (req, res) => {
 
 exports.getAllEmployees = async (req, res) => {
   try {
-    const { unitId } = req.body;
-    const employees = await Employee.find({unitId:unitId})
+    
+    const employees = await Employee.find({})
 
     res.status(200).json(employees);
   } catch (error) {

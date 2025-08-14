@@ -159,7 +159,7 @@ exports.getAllEmployees = async (req, res) => {
 exports.getAllParentsMenu = async (req, res) => {
   try {
     const matchStage = {
-      parentFormId: null,
+      parentFormId: null || "",
       isActive: true,
     };
 

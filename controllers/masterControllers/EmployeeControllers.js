@@ -1,10 +1,26 @@
 const Employee = require('../../models/masterModels/Employee');
 const bcrypt = require('bcrypt');
+const mongoose = require('mongoose');
+const defaultMenus = require('./defaultMenu.json')
+const UserRights = require('../../models/masterModels/UserRights')
+const MenuRegistry = require('../../models/masterModels/MenuRegistry')
 
 // Create Employee
 exports.createEmployee = async (req, res) => {
   try {
-    const { EmployeeCode, EmployeeName, employeeEmail, employeePhone, employeeRole, employeeAddress, password } = req.body;
+    const { EmployeeCode, 
+      EmployeeName, 
+      employeeEmail, 
+      employeePhone, 
+      employeeRole, 
+      employeeAddress, 
+      password } = req.body;
+    // 1. Validate role
+    if (!employeeRole || !defaultMenus[employeeRole]) {
+      return res.status(400).json({ message: "Invalid or missing role" });
+    }
+
+    const defaultMenuIds = defaultMenus[employeeRole].map((id) => id.toString());
 
     // Check for existing email or code
     const existing = await Employee.findOne({ $or: [{ employeeEmail }, { EmployeeCode }] });
@@ -25,6 +41,36 @@ exports.createEmployee = async (req, res) => {
     });
 
     await newEmployee.save();
+
+        // 4. Fetch all menu registry items
+        const allMenus = await MenuRegistry.find({}).lean();
+    
+        // 5. Build userRights.menus array
+        const menuPermissions = allMenus.map((menu) => {
+          const isDefault = defaultMenuIds.includes(menu._id.toString());
+    
+          return {
+            menuId: menu._id,
+            formId: menu.formId,
+            parentFormId: menu.parentFormId || null,
+            title: menu.title,
+            isEnable: isDefault,
+            isView: isDefault,
+            isAdd: isDefault,
+            isEdit: isDefault,
+            isDelete: isDefault,
+            isNotification: isDefault && employeeRole === "admin"
+          };
+        });
+    
+        // 6. Create user rights doc (one per employee)
+        const userRights = new UserRights({
+          employeeId: newEmployee._id,
+          unitId: newEmployee.unitId,
+          menus: menuPermissions
+        });
+    
+        await userRights.save();
     res.status(201).json({ message: 'Employee created successfully', data: newEmployee });
 
   } catch (error) {
