@@ -178,7 +178,6 @@ exports.getAllUserRights = async (req, res) => {
         menus: buildMenuResponseTree(filteredMenus)
       });
     }
-console.log(results,"results")
     return res.status(200).json(results);
   } catch (error) {
     console.error(error);

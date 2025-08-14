@@ -25,6 +25,10 @@ const employeeSchema = new mongoose.Schema({
     enum: ['superadmin','admin', 'agent'],
     default: 'agent'
   },
+  roleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Role"
+  },
   employeeAddress: {
     type: String
   },

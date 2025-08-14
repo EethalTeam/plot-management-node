@@ -48,7 +48,6 @@ exports.getAllCitys = async (req, res) => {
         if(StateID){
             filter.StateID=new mongoose.Types.ObjectId(StateID)
         }
-        console.log(filter,"filter")
         const city= await City.aggregate([
             {$match:filter},
             {
@@ -79,7 +78,6 @@ exports.getAllCitys = async (req, res) => {
         }
     ])
     // const city = City.find({filter})
-    console.log(city,"")
         res.status(200).json(city);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -160,7 +158,6 @@ exports.getAllStates = async (req, res) => {
                 }
             }
         ]);
-        // console.log(states,"contry")
         res.status(200).json({
             message: 'States fetched successfully',
             data: states
