@@ -21,9 +21,7 @@ const employeeSchema = new mongoose.Schema({
     required: true
   },
   employeeRole: {
-    type: String,
-    enum: ['superadmin','admin', 'agent'],
-    default: 'agent'
+    type: String
   },
   roleId: {
     type: mongoose.Schema.Types.ObjectId,

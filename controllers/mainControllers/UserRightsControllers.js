@@ -22,8 +22,7 @@ exports.createUserRights = async (req, res) => {
       isView: item.isView ?? true,
       isEdit: item.isEdit ?? true,
       isAdd: item.isAdd ?? true,
-      isDelete: item.isDelete ?? true,
-      unitAccess: item.unitAccess?.map(id => new mongoose.Types.ObjectId(id)) ?? []
+      isDelete: item.isDelete ?? true
     }));
 
     await UserRights.insertMany(docs);
@@ -98,14 +97,6 @@ exports.getUserRightsByEmployee = async (req, res) => {
       menuRegistryMap.set(menu._id.toString(), menu);
     });
 
-    // Step 3: Lookup Unit names
-    const allUnitIds = new Set();
-    userRights.menus.forEach((menu) => {
-      (menu.unitAccess || []).forEach((id) => {
-        allUnitIds.add(id.toString());
-      });
-    });
-
     // Step 4: Assemble the menus with sortOrder etc.
     const enabledMenus = userRights.menus.filter(m => m.isEnable === true);
 
@@ -150,34 +141,46 @@ exports.getAllUserRights = async (req, res) => {
       .populate("employeeId", "_id EmployeeName EmployeeCode employeeRole")
       .lean();
 
-    const results = [];
+    // 🔑 Get all menus once
+    const allMenus = await MenuRegistry.find({}, "_id formId parentFormId title").lean();
 
+    const results = [];
     for (const userRight of allUserRights) {
       const employee = userRight.employeeId;
-      // fetch unit details
-      // const employeeDoc = await Employee.findById(employee._id)
 
-      // Merge menus into tree format
-      const mergedMenus = userRight.menus;
-      // Remove disabled menus without children
-      const filteredMenus = mergedMenus.filter((menu) => {
-        if (menu.parentFormId) return true;
-
-        const hasChildren = mergedMenus.some(
-          (m) => m.parentFormId === menu.formId
-        );
-        return menu.isEnable || hasChildren;
+      // 1. Map existing rights into a dictionary for fast lookup
+      const rightsMap = new Map(
+        userRight.menus.map(m => [String(m.formId), m])
+      );
+      // 2. Merge all menus with rights
+      const mergedMenus = allMenus.map(menu => {
+        const rights = rightsMap.get(String(menu.formId));
+        return {
+          menuId: menu._id,
+          formId: menu.formId,
+          parentFormId: menu.parentFormId || null,
+          title: menu.title,
+          isEnable: rights ? rights.isEnable : false,
+          isView: rights ? rights.isView : false,
+          isAdd: rights ? rights.isAdd : false,
+          isEdit: rights ? rights.isEdit : false,
+          isDelete: rights ? rights.isDelete : false
+        };
       });
 
+      // 3. Build menu tree
+      const menuTree = buildMenuTree(mergedMenus);
+
       results.push({
-        _id:userRight._id,
+        _id: userRight._id,
         employeeId: employee._id,
         employeeName: employee.EmployeeName,
         employeeCode: employee.EmployeeCode,
         employeeRole: employee.employeeRole,
-        menus: buildMenuResponseTree(filteredMenus)
+        menus: menuTree
       });
     }
+
     return res.status(200).json(results);
   } catch (error) {
     console.error(error);
@@ -212,11 +215,7 @@ exports.updateUserRights = async (req, res) => {
         isAdd: menu.isAdd ?? false,
         isEdit: menu.isEdit ?? false,
         isDelete: menu.isDelete ?? false,
-        isNotification: menu.isNotification ?? false,
-        unitAccess:
-          menu.unitAccess?.map(
-            (id) => new mongoose.Types.ObjectId(id)
-          ) ?? [],
+        isNotification: menu.isNotification ?? false
       })),
     };
 
@@ -279,7 +278,6 @@ exports.getAllMenus = async (req, res) => {
     const menus = await MenuRegistry.find({
       isActive: true
     })
-      .populate("unitAccess", "_id UnitName")
       .sort({ sortOrder: 1 })
       .lean();
     // Step 2 → Build a lookup map { formId → menu }

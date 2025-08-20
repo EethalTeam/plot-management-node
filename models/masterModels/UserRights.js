@@ -40,13 +40,7 @@ const menuPermissionSchema = new mongoose.Schema({
   isNotification: {
     type: Boolean,
     default: false
-  },
-  unitAccess: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Unit'
-    }
-  ]
+  }
 }, { _id: false }); // prevent _id creation for each menu item
 
 const userRightsSchema = new mongoose.Schema({
@@ -55,10 +49,6 @@ const userRightsSchema = new mongoose.Schema({
     ref: 'Employee',
     required: true,
     unique: true // 1 doc per employee
-  },
-  unitId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Unit'
   },
   menus: [menuPermissionSchema] // Embedded array of menu permissions
 }, { timestamps: true });

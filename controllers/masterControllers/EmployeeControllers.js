@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const defaultMenus = require('./defaultMenu.json')
 const UserRights = require('../../models/masterModels/UserRights')
 const MenuRegistry = require('../../models/masterModels/MenuRegistry')
+const RoleBased = require("../../models/masterModels/RBAC")
 
 // Create Employee
 exports.createEmployee = async (req, res) => {
@@ -12,15 +13,10 @@ exports.createEmployee = async (req, res) => {
       EmployeeName, 
       employeeEmail, 
       employeePhone, 
-      employeeRole, 
+      employeeRole,
+      roleId, 
       employeeAddress, 
       password } = req.body;
-    // 1. Validate role
-    if (!employeeRole || !defaultMenus[employeeRole]) {
-      return res.status(400).json({ message: "Invalid or missing role" });
-    }
-
-    const defaultMenuIds = defaultMenus[employeeRole].map((id) => id.toString());
 
     // Check for existing email or code
     const existing = await Employee.findOne({ $or: [{ employeeEmail }, { EmployeeCode }] });
@@ -36,6 +32,7 @@ exports.createEmployee = async (req, res) => {
       employeeEmail,
       employeePhone,
       employeeRole,
+      roleId,
       employeeAddress,
       password: hashedPassword
     });
@@ -43,34 +40,53 @@ exports.createEmployee = async (req, res) => {
     await newEmployee.save();
 
         // 4. Fetch all menu registry items
-        const allMenus = await MenuRegistry.find({}).lean();
-    
-        // 5. Build userRights.menus array
-        const menuPermissions = allMenus.map((menu) => {
-          const isDefault = defaultMenuIds.includes(menu._id.toString());
-    
-          return {
-            menuId: menu._id,
-            formId: menu.formId,
-            parentFormId: menu.parentFormId || null,
-            title: menu.title,
-            isEnable: isDefault,
-            isView: isDefault,
-            isAdd: isDefault,
-            isEdit: isDefault,
-            isDelete: isDefault,
-            isNotification: isDefault && employeeRole === "admin"
-          };
-        });
-    
-        // 6. Create user rights doc (one per employee)
-        const userRights = new UserRights({
-          employeeId: newEmployee._id,
-          unitId: newEmployee.unitId,
-          menus: menuPermissions
-        });
-    
-        await userRights.save();
+const allMenus = await RoleBased.find({})
+  .populate("permissions.menuId", "formId parentFormId title")
+  .lean();
+
+// Step 1: Build menuPermissions for selected role
+let menuPermissions = allMenus
+  .filter(val => String(val._id) === String(roleId))
+  .flatMap(menu =>
+    menu.permissions.map(v => ({
+      menuId: v.menuId._id,
+      formId: v.menuId.formId,
+      parentFormId: v.menuId.parentFormId || null,
+      title: v.menuId.title,
+      isEnable: true,
+      isView: v.isView,
+      isAdd: v.isAdd,
+      isEdit: v.isEdit,
+      isDelete: v.isDelete
+    }))
+  );
+
+// Step 2: Ensure parent menus are also enabled
+const parentIds = [
+  ...new Set(menuPermissions.map(m => m.parentFormId).filter(Boolean))
+];
+for (const parentId of parentIds) {
+  const alreadyExists = menuPermissions.some(m => String(m.menuId) === String(parentId));
+  if (!alreadyExists) {
+    const parentMenu = await MenuRegistry.findOne({formId:parentId}).lean();
+    if (parentMenu) {
+      menuPermissions.push({
+        menuId: parentMenu._id,
+        formId: parentMenu.formId,
+        parentFormId: parentMenu.parentFormId || null,
+        title: parentMenu.title,
+        isEnable: true
+      });
+    }
+  }
+}
+
+// Step 3: Create user rights doc
+const userRights = new UserRights({
+  employeeId: newEmployee._id,
+  menus: menuPermissions
+});
+await userRights.save();
     res.status(201).json({ message: 'Employee created successfully', data: newEmployee });
 
   } catch (error) {
@@ -78,6 +94,30 @@ exports.createEmployee = async (req, res) => {
   }
 };
 
+exports.exampleRole = async(req,res)=>{
+  try {
+   const roleId="68a44c033dce40b3d0327c03"
+        const allMenus = await RoleBased.find({}).populate("permissions.menuId","formId parentFormId title").lean();
+    
+        // 5. Build userRights.menus array
+        const menuPermissions = allMenus.filter(val=>String(val._id) === String(roleId)).flatMap((menu) => {
+         return menu.permissions.map(v=>({
+            menuId: v.menuId._id,
+            formId: v.menuId.formId,
+            parentFormId: v.menuId.parentFormId || null,
+            title: v.menuId.title,
+            isView: v.isView,
+            isAdd: v.isAdd,
+            isEdit: v.isEdit,
+            isDelete: v.isDelete
+          }))
+        });
+    
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating employee', error: error.message });
+  }
+
+}
 // Get All Employees (optional filter by active)
 exports.getAllEmployees = async (req, res) => {
   try {
@@ -103,15 +143,16 @@ exports.getEmployeeById = async (req, res) => {
 // Update Employee
 exports.updateEmployee = async (req, res) => {
   try {
-    const { EmployeeName, employeeEmail, employeePhone, employeeRole, employeeAddress } = req.body;
+    const {_id, EmployeeName, employeeEmail, employeePhone, employeeRole, roleId, employeeAddress } = req.body;
 
     const updated = await Employee.findByIdAndUpdate(
-      req.params.id,
+      _id,
       {
         EmployeeName,
         employeeEmail,
         employeePhone,
         employeeRole,
+        roleId,
         employeeAddress
       },
       { new: true }

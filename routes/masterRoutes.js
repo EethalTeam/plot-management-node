@@ -8,6 +8,8 @@ const StatusController = require('../controllers/masterControllers/StatusControl
 const UnitController = require('../controllers/masterControllers/UnitControllers')
 const StateController = require('../controllers/masterControllers/StateControllers')
 const CityController = require('../controllers/masterControllers/CityControllers')
+const RoleController = require('../controllers/masterControllers/RoleControllers')
+const RBACController = require('../controllers/masterControllers/RBACControllers')
 
 //Notification 
 
@@ -19,14 +21,11 @@ router.post("/Notifications/getNotifications", NotificationController.getNotific
 router.post('/Auth/login', LoginController.verifyLogin);
 
 //********************Employee routers ********************** */
-// Create Employee
+
 router.post('/Employee/createEmployee', EmployeeController.createEmployee); 
-
-// Get all Employees
-router.post('/Employee/getAllEmployees', EmployeeController.getAllEmployees); 
-
-// Update Employee
+router.post('/Employee/getAllEmployees', EmployeeController.getAllEmployees);
 router.post('/Employee/updateEmployee', EmployeeController.updateEmployee); 
+router.post('/exampleRole',EmployeeController.exampleRole)
 
 //Status Routes
 router.post('/Status/createStatus', StatusController.createStatus)
@@ -52,5 +51,18 @@ router.post('/City/deleteCity', CityController.deleteCity)
 router.post('/City/updateCity', CityController.updateCity)
 router.post('/City/getAllCitys', CityController.getAllCitys)
 router.post('/City/getAllStates', CityController.getAllStates)
+
+// //Role Routes
+// router.post('/Role/createRole', RoleController.createRole)
+// router.post('/Role/deleteRole', RoleController.deleteRole)
+// router.post('/Role/updateRole', RoleController.updateRole)
+// router.post('/Role/getAllRoles', RoleController.getAllRoles)
+
+//Role Routes
+router.post('/RoleBased/createRole', RBACController.createRole)
+router.post('/RoleBased/deleteRole', RBACController.deleteRole)
+router.post('/RoleBased/updateRole', RBACController.updateRole)
+router.post('/RoleBased/getAllRoles', RBACController.getAllRoles)
+router.post('/RoleBased/getAllMenus', RBACController.getAllMenus)
 
 module.exports = router;
