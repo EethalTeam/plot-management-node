@@ -8,6 +8,7 @@ const { Server } = require('socket.io');
 const masterRoutes = require('./routes/masterRoutes');
 const mainRoutes = require('./routes/mainRoutes');
 const Notification = require('./models/masterModels/Notifications');
+const CallLogController=require('./controllers/masterControllers/callLogControllers')
 
 const app = express();
 const PORT = 8001;
@@ -16,6 +17,7 @@ app.use(bodyParser.json());
 app.use(cors());
 require('dotenv').config();
 
+app.get('/api/calls/fetch-all', CallLogController.fetchAllCallLogs);
 app.use('/api', masterRoutes);
 app.use('/api', mainRoutes);
 
