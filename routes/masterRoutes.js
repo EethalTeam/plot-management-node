@@ -10,11 +10,14 @@ const StateController = require('../controllers/masterControllers/StateControlle
 const CityController = require('../controllers/masterControllers/CityControllers')
 const RoleController = require('../controllers/masterControllers/RoleControllers')
 const RBACController = require('../controllers/masterControllers/RBACControllers')
+const CallLogController = require('../controllers/masterControllers/callLogControllers')
 
 //Notification 
 
 router.post("/notifications", NotificationController.createNotification);
 router.post("/Notifications/getNotifications", NotificationController.getNotificationsByUnit);
+
+router.post("/CallLogs/getAllCallLogs", CallLogController.getCallLogs)
 
 
 //********* Login ***************************** */

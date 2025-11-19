@@ -26,8 +26,7 @@ const TelecmiLogSchema = new mongoose.Schema({
   // In Inbound: Agent/Destination number. 
   // In Outbound: Customer number.
   to: {
-    type: Number, 
-    required: true
+    type: Number
   },
   time: {
     type: Number, 

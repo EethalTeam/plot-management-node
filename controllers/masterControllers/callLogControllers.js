@@ -3,6 +3,8 @@ const TelecmiLog = require('../../models/masterModels/TeleCMICallLog');
 
 const TELECMI_USER_ID = "5002_33336639";
 const TELECMI_USER_PASSWORD = "admin@123";
+const TELECMI_APP_ID = 33336639;
+const TELECMI_APP_SECRET = 'd18ce16a-5b80-49be-b682-072eaf3e85b7';
 
 const TELECMI_API_BASE_URL = 'https://rest.telecmi.com/v2/user';
 
@@ -125,8 +127,6 @@ console.log(normOutgoingMissed,"outgoingMissed")
     ];
 
     allCalls.sort((a, b) => b.time - a.time);
-const TELECMI_APP_ID = 33336639;
-const TELECMI_APP_SECRET = 'd18ce16a-5b80-49be-b682-072eaf3e85b7';
     const callsWithRecording = allCalls.map(call => {
       let recordingUrl = null;
       if (call.filename) {
@@ -155,7 +155,7 @@ exports.handleTelecmiWebhook = async (req, res) => {
       return res.status(400).send('No payload received');
     }
 
-    console.log('--- Telecmi Webhook Received ---');
+    console.log('--- Telecmi Webhook Received ---',payload);
     // console.log(payload); // Uncomment to debug
 
     const newLog = new TelecmiLog({
@@ -178,5 +178,102 @@ exports.handleTelecmiWebhook = async (req, res) => {
 
     console.error('Error saving webhook:', error.message);
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getCallLogs = async (req, res) => {
+  try {
+    // 1. Destructure query parameters for filtering & pagination
+    const { 
+      page = 1, 
+      limit = 10, 
+      direction, 
+      status, 
+      search,
+      startDate,
+      endDate 
+    } = req.query;
+
+    // 2. Build the Query Object
+    const query = {};
+
+    // Filter by Direction (inbound/outbound)
+    if (direction) {
+      query.direction = direction;
+    }
+
+    // Filter by Status (answered/missed)
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter by Date Range (using the 'callDate' field we created)
+    if (startDate || endDate) {
+      query.callDate = {};
+      if (startDate) query.callDate.$gte = new Date(startDate);
+      if (endDate)   query.callDate.$lte = new Date(endDate);
+    }
+
+    // Search functionality (Search by Agent Name, From Number, or To Number)
+    if (search) {
+      const searchRegex = new RegExp(search, 'i'); // Case-insensitive regex
+      query.$or = [
+        { user: searchRegex },        // Agent ID
+        { team: searchRegex },        // Team Name
+      ];
+      
+      // If search term is a number, check exact match on numeric fields
+      if (!isNaN(search)) {
+        query.$or.push({ from: Number(search) });
+        query.$or.push({ to: Number(search) });
+        query.$or.push({ virtualnumber: Number(search) });
+      }
+    }
+
+    // 3. Pagination Logic
+    const skip = (page - 1) * limit;
+
+    // 4. Fetch Data (Run query and count in parallel for performance)
+    const [logs, total] = await Promise.all([
+      TelecmiLog.find(query)
+        .sort({ callDate: -1 }) // Sort by newest first
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(), // .lean() is CRITICAL here. It returns plain JS objects we can modify.
+      TelecmiLog.countDocuments(query)
+    ]);
+
+    // 5. Transform the logs to include the Audio URL
+    const logsWithAudio = logs.map(log => {
+      let recordingUrl = null;
+      
+      if (log.filename) {
+        // Construct the Telecmi Play URL
+        recordingUrl = `https://rest.telecmi.com/v2/play?appid=${TELECMI_APP_ID}&secret=${TELECMI_APP_SECRET}&file=${log.filename}`;
+      }
+
+      return {
+        ...log, // Spread existing properties
+        recordingUrl: recordingUrl // Add the new URL field
+      };
+    });
+
+    // 6. Send Response
+    res.status(200).json({
+      success: true,
+      count: logsWithAudio.length,
+      total,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: skip + logsWithAudio.length < total,
+        hasPrevPage: page > 1
+      },
+      data: logsWithAudio
+    });
+
+  } catch (error) {
+    console.error('Error fetching call logs:', error.message);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
