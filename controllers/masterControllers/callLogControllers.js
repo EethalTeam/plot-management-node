@@ -1,3 +1,6 @@
+const TelecmiLog = require('../../models/masterModels/TeleCMICallLog');
+
+
 const TELECMI_USER_ID = "5002_33336639";
 const TELECMI_USER_PASSWORD = "admin@123";
 
@@ -80,7 +83,7 @@ exports.fetchAllCallLogs = async (req, res) => {
     console.log('Successfully got token, now fetching logs...');
 
     const toTimestamp = Date.now();
-    const fromTimestamp = toTimestamp - 7 * 24 * 60 * 60 * 1000;
+    const fromTimestamp = toTimestamp - 17 * 24 * 60 * 60 * 1000;
 
     const requestBody = {
       from: fromTimestamp,
@@ -140,5 +143,40 @@ const TELECMI_APP_SECRET = 'd18ce16a-5b80-49be-b682-072eaf3e85b7';
   } catch (error) {
     console.error('Error in fetchAllCallLogs:', error.message);
     res.status(500).json({ success: false, message: error.message || 'Internal Server Error' });
+  }
+};
+
+
+exports.handleTelecmiWebhook = async (req, res) => {
+  try {
+    const payload = req.body;
+
+    if (!payload) {
+      return res.status(400).send('No payload received');
+    }
+
+    console.log('--- Telecmi Webhook Received ---');
+    // console.log(payload); // Uncomment to debug
+
+    const newLog = new TelecmiLog({
+      ...payload, 
+      
+      // Convert timestamp to Date object
+      callDate: new Date(payload.time) 
+    });
+
+    await newLog.save();
+
+    console.log(`Saved ${payload.direction} log: ${payload.cmiuuid}`);
+    res.status(200).json({ success: true, message: "Data Saved" });
+
+  } catch (error) {
+    if (error.code === 11000) {
+      console.warn('Duplicate call log ignored.');
+      return res.status(200).json({ success: true, message: "Duplicate received" });
+    }
+
+    console.error('Error saving webhook:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 };

@@ -18,6 +18,7 @@ app.use(cors());
 require('dotenv').config();
 
 app.get('/api/calls/fetch-all', CallLogController.fetchAllCallLogs);
+app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.use('/api', masterRoutes);
 app.use('/api', mainRoutes);
 
