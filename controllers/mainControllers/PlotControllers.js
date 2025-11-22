@@ -6,7 +6,7 @@ const Visitor = require('../../models/masterModels/Visitor');
 // Create Plot
 exports.createPlot = async (req, res) => {
   try {
-    const { siteId, unitId, plotNumber } = req.body;
+    const { siteId, unitId, plotNumber,areaInSqFt,cents,description,dimension,facing,landmark,remarks,road } = req.body;
 
     const duplicateQuery = { 
         siteId, 
@@ -40,9 +40,12 @@ exports.createPlot = async (req, res) => {
       const nextNumber = numberPart + 1;
       newCode = "PL" + nextNumber.toString().padStart(5, "0");
     }
-
+let createDatas={ siteId, plotNumber,areaInSqFt,cents,description,dimension,facing,landmark,remarks,road }
+if(unitId){
+createDatas.unitId=unitId
+}
     const plot = new Plot({
-      ...req.body,
+     ...createDatas,
       plotCode: newCode,
     });
 
@@ -112,8 +115,11 @@ exports.getPlotById = async (req, res) => {
 // Update Plot
 exports.updatePlot = async (req, res) => {
   try {
-    const { id, ...updateData } = req.body;
-
+    const { _id,siteId, unitId, plotNumber,areaInSqFt,cents,description,dimension,facing,landmark,remarks,road } = req.body;
+let updateData={siteId, plotNumber,areaInSqFt,cents,description,dimension,facing,landmark,remarks,road}
+if(!unitId){
+  updateData.unitId=unitId
+}
     const updatedPlot = await Plot.findByIdAndUpdate(id, updateData, {
       new: true,
     });
