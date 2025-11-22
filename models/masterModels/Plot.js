@@ -124,6 +124,5 @@ const plotSchema = new mongoose.Schema({
     default: Date.now,
   }
 });
-plotSchema.index({ siteId: 1, unitId: 1, plotNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model("Plot", plotSchema);
