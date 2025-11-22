@@ -84,6 +84,7 @@ exports.getAllPlots = async (req, res) => {
       .populate("statusId", "statusName colorCode")
       .populate("visitDetails.visitedBy", "_id visitorName")
       .populate("interestDetails.interestedBy", "_id visitorName")
+      .collation({ locale: "en", numericOrdering: true })
       .sort({ plotNumber: 1 });
 
     res.status(200).json({ success: true, data: plots });
