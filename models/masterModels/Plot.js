@@ -1,10 +1,15 @@
 const mongoose = require("mongoose");
 
 const plotSchema = new mongoose.Schema({
+  siteId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Site",
+    required: true, 
+  },
+  // ----------------------
   unitId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Unit",
-    required: true,
+    ref: "Unit"
   },
   plotCode: {
     type: String,
@@ -14,7 +19,6 @@ const plotSchema = new mongoose.Schema({
   plotNumber: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
   },
   dimension: {
@@ -24,18 +28,18 @@ const plotSchema = new mongoose.Schema({
     type: Number,
   },
   cents: {
-    type: Number, // 1 cent = 435.6 sq ft (approx.)
+    type: Number,
   },
   facing: {
     type: String,
     enum: ["East", "West", "North", "South", "NE", "NW", "SE", "SW"],
   },
 
-statusId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Status",
-  default: new mongoose.Types.ObjectId('6889bcf6080f330c24ba0521')
-},
+  statusId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Status",
+    default: new mongoose.Types.ObjectId('6889bcf6080f330c24ba0521')
+  },
 
   soldDate: {
     type: Date,
@@ -120,5 +124,6 @@ statusId: {
     default: Date.now,
   }
 });
+plotSchema.index({ siteId: 1, unitId: 1, plotNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model("Plot", plotSchema);

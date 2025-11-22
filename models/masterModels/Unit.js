@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const unitSchema = new mongoose.Schema(
   {
+    // --- New Site Field ---
+    siteId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Site'
+    },
+    // ----------------------
     UnitName: {
       type: String,
       required: true,

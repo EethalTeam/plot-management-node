@@ -6,6 +6,7 @@ const LoginController = require('../controllers/masterControllers/LoginControlle
 const NotificationController = require('../controllers/masterControllers/NotificationControllers')
 const StatusController = require('../controllers/masterControllers/StatusControllers')
 const UnitController = require('../controllers/masterControllers/UnitControllers')
+const SiteController = require('../controllers/masterControllers/SiteControllers')
 const StateController = require('../controllers/masterControllers/StateControllers')
 const CityController = require('../controllers/masterControllers/CityControllers')
 const RoleController = require('../controllers/masterControllers/RoleControllers')
@@ -18,6 +19,7 @@ router.post("/notifications", NotificationController.createNotification);
 router.post("/Notifications/getNotifications", NotificationController.getNotificationsByUnit);
 
 router.post("/CallLogs/getAllCallLogs", CallLogController.getCallLogs)
+router.post("/CallLogs/Qualify", CallLogController.qualifyCallLog)
 
 
 //********* Login ***************************** */
@@ -41,6 +43,12 @@ router.post('/Unit/createUnit', UnitController.createUnit)
 router.post('/Unit/deleteUnit', UnitController.deleteUnit)
 router.post('/Unit/updateUnit', UnitController.updateUnit)
 router.post('/Unit/getAllUnits', UnitController.getAllUnits)
+
+//Site Routes
+router.post('/Site/createSite', SiteController.createSite)
+router.post('/Site/deleteSite', SiteController.deleteSite)
+router.post('/Site/updateSite', SiteController.updateSite)
+router.post('/Site/getAllSites', SiteController.getAllSites)
 
 //State Routes
 router.post('/State/createState', StateController.createState)

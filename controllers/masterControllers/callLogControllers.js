@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const TelecmiLog = require('../../models/masterModels/TeleCMICallLog');
+const Lead = require('../../models/masterModels/Leads'); // Adjust path
 
 
 const TELECMI_USER_ID = "5002_33336639";
@@ -275,5 +277,91 @@ exports.getCallLogs = async (req, res) => {
   } catch (error) {
     console.error('Error fetching call logs:', error.message);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
+
+exports.qualifyCallLog = async (req, res) => {
+  try {
+    const { logId } = req.body; // Assuming you pass the _id of the call log in the URL
+
+    // 1. Fetch the Call Log
+    const callLog = await TelecmiLog.findById(logId);
+
+    if (!callLog) {
+      return res.status(404).json({ success: false, message: 'Call log not found' });
+    }
+
+    // 2. Determine the Customer's Phone Number
+    // Based on your schema notes: Inbound = 'from' is customer, Outbound = 'to' is customer
+    let customerPhone = '';
+    
+    if (callLog.direction === 'inbound') {
+      customerPhone = callLog.from ? String(callLog.from) : '';
+    } else {
+      // outbound
+      customerPhone = callLog.to ? String(callLog.to) : '';
+    }
+
+    if (!customerPhone) {
+      return res.status(400).json({ success: false, message: 'No customer phone number found in this log' });
+    }
+
+    // 3. Check if Lead already exists (Optional but recommended)
+    const existingLead = await Lead.findOne({ 
+      'contactInfo.phone': customerPhone 
+    });
+
+    if (existingLead) {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Lead already exists with this phone number',
+        lead: existingLead
+      });
+    }
+
+    // 4. Prepare Data for New Lead
+    // Since we don't know the name yet, we use a placeholder or the number itself
+    const newLeadData = {
+      contactInfo: {
+        firstName: 'Unknown Caller', // Sales agent will update this later
+        lastName: customerPhone,      // Helpful for searching
+        phone: customerPhone,
+        email: `${customerPhone}@placeholder.com`, // Placeholder to satisfy 'required' validation if exists
+      },
+      leadSource: 'Call Logs', // Or 'Cold Call' / 'Inbound'
+      leadStatus: 'New',
+      // 5. Map Contextual Data to Notes or Custom Fields
+      // We create an initial note with the call recording and details
+      notes: [
+        {
+            text: `Auto-qualified from Call Log. 
+            Duration: ${callLog.answeredsec}s. 
+            Status: ${callLog.status}. 
+            Recording: ${callLog.filename || 'N/A'}`,
+            createdAt: new Date()
+        }
+      ]
+    };
+
+    // 6. Create and Save the Lead
+    const newLead = await Lead.create(newLeadData);
+
+    // 7. (Optional) Update Call Log to indicate it was converted
+    // You might want to add a 'isQualified' or 'leadId' field to your TelecmiSchema later
+    // await TelecmiLog.findByIdAndUpdate(logId, { convertedToLead: newLead._id });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Call successfully qualified as a Lead',
+      data: newLead
+    });
+
+  } catch (error) {
+    console.error('Error qualifying lead:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server Error', 
+      error: error.message 
+    });
   }
 };

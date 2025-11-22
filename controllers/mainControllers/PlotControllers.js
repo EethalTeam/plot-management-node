@@ -1,26 +1,46 @@
 const Plot = require("../../models/masterModels/Plot");
-const Status = require('../../models/masterModels/Status')
-const Unit = require('../../models/masterModels/Unit')
-const Visitor = require('../../models/masterModels/Visitor')
+const Status = require('../../models/masterModels/Status');
+const Unit = require('../../models/masterModels/Unit');
+const Visitor = require('../../models/masterModels/Visitor');
 
 // Create Plot
 exports.createPlot = async (req, res) => {
   try {
-    // Step 1: Find the latest plot based on plotCode
+    const { siteId, unitId, plotNumber } = req.body;
+
+    const duplicateQuery = { 
+        siteId, 
+        plotNumber,
+        isActive: true
+    };
+    if (unitId) {
+        duplicateQuery.unitId = unitId;
+    } else {
+        duplicateQuery.unitId = { $exists: false }; 
+    }
+
+    const existingPlot = await Plot.findOne(duplicateQuery);
+
+    if (existingPlot) {
+        return res.status(400).json({ 
+            success: false, 
+            message: `Plot Number ${plotNumber} already exists in this ${unitId ? 'Unit' : 'Site'}.` 
+        });
+    }
+
     const latestPlot = await Plot.findOne({})
-      .sort({ plotCode: -1 }) // Sort descending
+      .sort({ plotCode: -1 })
       .select("plotCode");
 
     let newCode = "PL00001";
 
     if (latestPlot && latestPlot.plotCode) {
-      const lastCode = latestPlot.plotCode; // e.g., "PL00012"
-      const numberPart = parseInt(lastCode.replace("PL", "")); // e.g., 12
+      const lastCode = latestPlot.plotCode;
+      const numberPart = parseInt(lastCode.replace("PL", ""));
       const nextNumber = numberPart + 1;
-      newCode = "PL" + nextNumber.toString().padStart(5, "0"); // e.g., "PL00013"
+      newCode = "PL" + nextNumber.toString().padStart(5, "0");
     }
 
-    // Step 2: Create plot with the new code
     const plot = new Plot({
       ...req.body,
       plotCode: newCode,
@@ -31,23 +51,38 @@ exports.createPlot = async (req, res) => {
     res.status(201).json({ success: true, data: savedPlot });
   } catch (error) {
     console.error("Create Plot Error:", error);
+    
+    if (error.code === 11000) {
+        return res.status(400).json({ success: false, message: "Duplicate Plot details found." });
+    }
+
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get All Plots
 exports.getAllPlots = async (req, res) => {
   try {
-    const {unitId}=req.body
-    let filter={isActive: true}
-    if(unitId){
-      filter.unitId=unitId
+    const { unitId, siteId } = req.body;
+    let filter = { isActive: true };
+
+    // Filter by Unit if provided
+    if (unitId) {
+      filter.unitId = unitId;
     }
+
+    // Filter by Site if provided
+    if (siteId) {
+      filter.siteId = siteId;
+    }
+
     const plots = await Plot.find(filter)
+      .populate("siteId", "sitename location") // Populate Site details
       .populate("unitId", "UnitName UnitCode")
       .populate("statusId", "statusName colorCode")
       .populate("visitDetails.visitedBy", "_id visitorName")
-      .populate("interestDetails.interestedBy", "_id visitorName");
+      .populate("interestDetails.interestedBy", "_id visitorName")
+      .sort({ createdAt: 1 });
+
     res.status(200).json({ success: true, data: plots });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -60,6 +95,7 @@ exports.getPlotById = async (req, res) => {
     const { id } = req.body;
 
     const plot = await Plot.findOne({ _id: id, isActive: true })
+      .populate("siteId", "sitename")
       .populate("unitId", "unitName unitCode")
       .populate("statusId", "statusName");
 

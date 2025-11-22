@@ -6,6 +6,7 @@ const UserRightsControllers = require('../controllers/mainControllers/UserRights
 const VisitorControllers = require('../controllers/mainControllers/VisitorControllers')
 const PlotControllers = require('../controllers/mainControllers/PlotControllers')
 const DashBoardStats = require('../controllers/mainControllers/DashBoardStats')
+const LeadControllers= require('../controllers/masterControllers/LeadControllers')
 
 router.post('/Log/getAllLogs', LogControllers.getAllLogs )
 router.post('/Log/getFilteredLogs', LogControllers.getFilteredLogs )
@@ -53,5 +54,12 @@ router.post('/getPendingFollowUps', VisitorControllers.getPendingFollowUpsByEmpl
 router.post('/getCompletedFollowUps', VisitorControllers.getCompletedFollowUpsByEmployee)
 
 router.post('/transferFollowUps', VisitorControllers.transferFollowUps)
+
+router.post('/Lead/getAllLeads', LeadControllers.getAllLeads)
+router.post('/Lead/createLead', LeadControllers.createLead)
+router.post('/Lead/updateLead', LeadControllers.updateLead)
+router.post('/Lead/deleteLeads', LeadControllers.deleteLead)
+router.post('/Lead/addLeadNote', LeadControllers.addLeadNote)
+router.post('/Lead/getLeadById', LeadControllers.getLeadById)
 
 module.exports = router;
