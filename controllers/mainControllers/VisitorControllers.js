@@ -78,14 +78,18 @@ exports.getAllVisitors = async (req, res) => {
       })
       .populate({
     path: "plots.plotId",
-    select: "plotCode plotNumber unitId",
+    select: "plotCode plotNumber unitId siteId",
     populate: {
       path: "unitId",
       select: "UnitName"
+    },
+    populate:{
+      path:"siteId",
+      select:"sitename"
     }
   })
       .populate("plots.statusId", "statusName colorCode")
-      .populate("followUps.followedUpById", "EmployeeName");
+      .populate("followUps.followedUpById", "EmployeeName")
     res.status(200).json({ success: true, data: visitors });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -352,8 +356,12 @@ exports.deleteVisitorPlot = async (req, res) => {
 
 exports.getAllPlots = async (req, res) => {
   try {
-    const {unitId} = req.body
-    const plots = await Plots.find({unitId:unitId})
+    const {siteId,unitId} = req.body
+    let filter={siteId:siteId}
+    if(unitId){
+      filter.unitId=unitId
+    }
+    const plots = await Plots.find(filter).collation({ locale: "en", numericOrdering: true }).sort({plotNumber:1})
       // .populate("plots.plotId")
       // .populate("plots.statusId")
       // .populate("followUps.followedUpById");
