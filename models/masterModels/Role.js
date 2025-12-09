@@ -6,13 +6,11 @@ const RoleSchema = new mongoose.Schema(
     RoleCode: {
       type: String,
       required: true,
-      unique: true,
-      trim: true
+      
     },
     RoleName: {
       type: String,
       required: true,
-      unique: true,
       trim: true
     },
     description: {

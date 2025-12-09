@@ -5,7 +5,7 @@ const employeeSchema = new mongoose.Schema({
   EmployeeCode: {
     type: String,
     required: true,
-    unique: true
+     
   },
   EmployeeName: {
     type: String,
@@ -14,7 +14,7 @@ const employeeSchema = new mongoose.Schema({
   employeeEmail: {
     type: String,
     required: true,
-    unique: true
+   
   },
   employeePhone: {
     type: String,
@@ -40,4 +40,6 @@ const employeeSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Employee', employeeSchema);
+
+const EmployeeModel = mongoose.model('Employee', employeeSchema);
+module.exports = EmployeeModel

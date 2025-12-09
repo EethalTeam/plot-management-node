@@ -24,7 +24,7 @@ exports.createEmployee = async (req, res) => {
       return res.status(400).json({ message: 'Employee email or code already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
 
     const newEmployee = new Employee({
       EmployeeCode,
@@ -34,7 +34,8 @@ exports.createEmployee = async (req, res) => {
       employeeRole,
       roleId,
       employeeAddress,
-      password: hashedPassword
+      password
+      // password: hashedPassword
     });
 
     await newEmployee.save();
@@ -182,3 +183,6 @@ exports.softDeleteEmployee = async (req, res) => {
     res.status(500).json({ message: 'Error deleting employee', error: error.message });
   }
 };
+
+
+

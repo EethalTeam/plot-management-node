@@ -22,6 +22,7 @@ app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.use('/api', masterRoutes);
 app.use('/api', mainRoutes);
 
+
 app.get('/test', (req, res) => {
   res.send("Testing mongo db url", process.env.MONGODB_URI);
 });
