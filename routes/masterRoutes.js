@@ -31,7 +31,14 @@ router.post('/Employee/createEmployee', EmployeeController.createEmployee);
 router.post('/Employee/getAllEmployees', EmployeeController.getAllEmployees);
 router.post('/Employee/updateEmployee', EmployeeController.updateEmployee); 
 router.post('/Employee/softDeleteEmployee',EmployeeController.softDeleteEmployee)
-router.post('/exampleRole',EmployeeController.exampleRole)
+// router.post('/exampleRole',EmployeeController.exampleRole)
+
+//login Employee
+
+router.post('/Employee/loginEmployee',EmployeeController.loginEmploye)
+router.post('/Employee/logoutEmployee',EmployeeController.logoutEmployee)
+router.post('/Employee/logoutUser',EmployeeController.logoutUser)
+router.post('/Employee/checkLogin',EmployeeController.checkLogin)
 
 //Status Routes
 router.post('/Status/createStatus', StatusController.createStatus)
@@ -70,11 +77,14 @@ router.post('/City/getAllStates', CityController.getAllStates)
 // router.post('/Role/updateRole', RoleController.updateRole)
 // router.post('/Role/getAllRoles', RoleController.getAllRoles)
 
-//Role Routes
+
+//RBACControllers
 router.post('/RoleBased/createRole', RBACController.createRole)
 router.post('/RoleBased/deleteRole', RBACController.deleteRole)
 router.post('/RoleBased/updateRole', RBACController.updateRole)
 router.post('/RoleBased/getAllRoles', RBACController.getAllRoles)
 router.post('/RoleBased/getAllMenus', RBACController.getAllMenus)
+router.post('/RoleBased/updateMenusAndAccess', RBACController.updateMenusAndAccess)
+router.post('/RoleBased/getPermissions', RBACController.getPermissionsByRoleAndPath)
 
 module.exports = router;

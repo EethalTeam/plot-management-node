@@ -20,12 +20,9 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  employeeRole: {
-    type: String
-  },
   roleId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Role"
+    ref: "RoleBased"
   },
   employeeAddress: {
     type: String
