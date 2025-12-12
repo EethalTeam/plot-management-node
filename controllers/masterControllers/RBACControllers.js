@@ -358,18 +358,21 @@ exports.getAllMenus = async (req, res) => {
       .select('_id label parentId id path sortOrder isActive')
       .sort({ sortOrder: 1, label: 1 })
       .lean();
+      console.log(menus,"menus")
 
     // Create a lookup map for parent titles
     const menuMap = {};
     for (const menu of menus) {
       menuMap[menu.formId] = menu.label;
     }
+    console.log(menuMap,"menuMap")
 
     // Enrich menus with parent title
     const enrichedMenus = menus.map(menu => ({
       ...menu,
       parentTitle: menu.parentId ? (menuMap[menu.parentId] || null) : null
     }));
+    console.log(enrichedMenus,"enrichedMenus")
 
     res.status(200).json({
       success: true,
@@ -591,7 +594,7 @@ exports.getAllRoles = async (req, res) => {
     const roles = await Role.aggregate([
       {
         $lookup: {
-          from: "menus", // 👈 correct collection name
+          from: "MenuRegistry", // 👈 correct collection name
           localField: "permissions.menuId",
           foreignField: "_id",
           as: "menuData"

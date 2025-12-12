@@ -63,7 +63,7 @@ const menuSchema = new mongoose.Schema(
     },
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Menu",
+      ref: "MenuRegistry",
       default: null, // null = top-level menu, otherwise submenu
     },
     order: {
