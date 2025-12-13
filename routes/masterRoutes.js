@@ -12,6 +12,7 @@ const CityController = require('../controllers/masterControllers/CityControllers
 const RoleController = require('../controllers/masterControllers/RoleControllers')
 const RBACController = require('../controllers/masterControllers/RBACControllers')
 const CallLogController = require('../controllers/masterControllers/callLogControllers')
+const DocumentControllers = require('../controllers/masterControllers/DocumentControllers')
 
 //Notification 
 
@@ -86,5 +87,12 @@ router.post('/RoleBased/getAllRoles', RBACController.getAllRoles)
 router.post('/RoleBased/getAllMenus', RBACController.getAllMenus)
 router.post('/RoleBased/updateMenusAndAccess', RBACController.updateMenusAndAccess)
 router.post('/RoleBased/getPermissions', RBACController.getPermissionsByRoleAndPath)
+
+//DocumentControllers
+router.post('/Document/createDocument',DocumentControllers.createDocument)
+router.post('/Document/getAllDocument',DocumentControllers.getAllDocument)
+router.post('/Document/getSingleDocument',DocumentControllers.getDocumentByName)
+router.post('/Document/updateDocument',DocumentControllers.updateDocument)
+router.post('/Document/deleteDocument',DocumentControllers.deleteDocument)
 
 module.exports = router;

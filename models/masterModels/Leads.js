@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const leadSchema = new mongoose.Schema({
   // --- 1. LEAD INFORMATION ---
@@ -61,6 +61,13 @@ const leadSchema = new mongoose.Schema({
     ref: 'User', // Link to your Employee/Admin model
     index: true
   },
+
+  documentID: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document', // Link to your Employee/Admin model
+    
+  },
+
 
   // --- 5. TRACKING & META ---
   tags: [String], // e.g., "Urgent", "Black Friday Promo", "VIP"

@@ -78,7 +78,7 @@ exports.getAllLeads = async (req, res) => {
         .sort({ createdAt: -1 }) // Newest first
         .skip(skip)
         .limit(Number(limit))
-        .populate('assignedAgent', 'name email'), // Populate agent details if needed
+        .populate('assignedAgent', 'name email',).populate('documentID','documentName'), // Populate agent details if needed
       Lead.countDocuments(query)
     ]);
 
@@ -105,7 +105,7 @@ exports.getLeadById = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Lead ID is required' });
     }
 
-    const lead = await Lead.findById(leadId).populate('assignedAgent', 'name email');
+    const lead = await Lead.findById(leadId).populate('assignedAgent', 'name email').populate('documentID','documentName');
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
