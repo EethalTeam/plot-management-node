@@ -18,6 +18,7 @@ router.post('/Log/logCountChange', LogControllers.logCountChange )
 //  router.post('/Menu/insertManyMenus', MenuControllers.InsertMany)
 router.post('/Menu/updateMenu', MenuControllers.updateMenu)
 router.post('/Menu/getAllMenus', MenuControllers.getAllMenus)
+router.post('/Menu/deleteMenu', MenuControllers.deleteMenu)
 router.post('/Menu/getAllParentsMenu', MenuControllers.getAllParentsMenu)
 router.post('/Menu/getFormattedMenu', MenuControllers.getFormattedMenu)
 

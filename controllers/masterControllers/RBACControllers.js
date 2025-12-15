@@ -309,7 +309,6 @@ exports.updateRole = async (req, res) => {
 
     // Check if role exists
     const existingRole = await Role.findById(_id);
-    console.log(existingRole,"existingRole")
     if (!existingRole) {
       return res.status(404).json({ 
         success: false, 
@@ -358,21 +357,18 @@ exports.getAllMenus = async (req, res) => {
       .select('_id label parentId id path sortOrder isActive')
       .sort({ sortOrder: 1, label: 1 })
       .lean();
-      console.log(menus,"menus")
 
     // Create a lookup map for parent titles
     const menuMap = {};
     for (const menu of menus) {
       menuMap[menu.formId] = menu.label;
     }
-    console.log(menuMap,"menuMap")
 
     // Enrich menus with parent title
     const enrichedMenus = menus.map(menu => ({
       ...menu,
       parentTitle: menu.parentId ? (menuMap[menu.parentId] || null) : null
     }));
-    console.log(enrichedMenus,"enrichedMenus")
 
     res.status(200).json({
       success: true,
@@ -424,7 +420,6 @@ exports.updateMenusAndAccess = async (req, res) => {
 
     // Find the role
     const role = await Role.findById(_id);
-    console.log(role,"role")
     if (!role) {
       return res.status(404).json({ 
         success: false, 
@@ -684,7 +679,6 @@ exports.getPermissionsByRoleAndPath = async (req, res) => {
 
     // 2. Find the role
     const role = await Role.findOne({ RoleName: roleName }).lean();
-    console.log(role,"findOne")
     if (!role) {
       return res.status(404).json({ success: false, message: "Role not found" });
     }
