@@ -299,7 +299,7 @@ exports.deleteMenu = async (req, res) => {
 
 exports.getAllEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find()
+    const employees = await Employee.find().populate("department", "name")
     res.status(200).json({
       message: "All employees fetched successfully",
       data: employees

@@ -562,7 +562,7 @@ exports.deleteRole = async (req, res) => {
     }
 
     const role = await Role.findByIdAndDelete(_id);
-  console.log(role,"findByIdAndDelete")
+ 
     if (!role) {
       return res.status(404).json({ 
         success: false, 
@@ -594,7 +594,7 @@ exports.getAllRoles = async (req, res) => {
     const roles = await Role.aggregate([
       {
         $lookup: {
-          from: "MenuRegistry", // 👈 correct collection name
+          from: "menuregistries", // 👈 correct collection name
           localField: "permissions.menuId",
           foreignField: "_id",
           as: "menuData"
@@ -674,7 +674,7 @@ exports.getAllRoles = async (req, res) => {
 
 exports.getPermissionsByRoleAndPath = async (req, res) => {
   try {
-    const { RoleName, path } = req.body;
+    const { roleName, path } = req.body;
 
     // 1. Find the menu by path
     const menu = await MenuRegistry.findOne({ path }).lean();
@@ -683,7 +683,7 @@ exports.getPermissionsByRoleAndPath = async (req, res) => {
     }
 
     // 2. Find the role
-    const role = await Role.findOne({ RoleName: RoleName }).lean();
+    const role = await Role.findOne({ RoleName: roleName }).lean();
     console.log(role,"findOne")
     if (!role) {
       return res.status(404).json({ success: false, message: "Role not found" });
@@ -711,8 +711,6 @@ exports.getPermissionsByRoleAndPath = async (req, res) => {
         isView: permission.isView,
         isDelete: permission.isDelete,
       },
-      success:true,
-      role
     });
   } catch (err) {
     console.error("Error in getPermissionsByRoleAndPath:", err);
