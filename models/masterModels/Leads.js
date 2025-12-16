@@ -30,19 +30,15 @@ const LeadSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
-
-  leadAddress: {
-    address: { type: String, trim: true },
-    cityId: {  type: mongoose.Schema.Types.ObjectId,ref:'City', trim: true },
-    stateId: {  type: mongoose.Schema.Types.ObjectId,ref:'State', trim: true },
-    countryId: {  type: mongoose.Schema.Types.ObjectId,ref:'Country', trim: true },
-    zipCode: { type: String, trim: true },
-  },
+    leadAddress: { type: String, trim: true },
+    leadCityId: {  type: mongoose.Schema.Types.ObjectId,ref:'City', trim: true },
+    leadStateId: {  type: mongoose.Schema.Types.ObjectId,ref:'State', trim: true },
+    leadCountryId: {  type: mongoose.Schema.Types.ObjectId,ref:'Country', trim: true },
+    leadZipCode: { type: String, trim: true },
 
   leadStatusId: {
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'LeadStatus',
-    
+    ref: 'LeadStatus'
   },
   leadSourceId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -71,7 +67,11 @@ const LeadSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now },
     eventType: { type: String, required: true },
     details: { type: String },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee'},
+     leadStatusId: {
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'LeadStatus'
+  },
   }],
 }, {
   timestamps: true 
