@@ -1,89 +1,80 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const leadSchema = new mongoose.Schema({
-  // --- 1. LEAD INFORMATION ---
-  contactInfo: {
-    firstName: { type: String, trim: true },
-    lastName: { type: String, trim: true },
-    email: { 
-      type: String, 
-      unique: true,
-      lowercase: true,
-      index: true 
-    },
-    phone: { type: String, required: true },
-    jobTitle: String,
-    linkedinProfile: String,
-  },
-
-  // --- 2. BUSINESS DETAILS (B2B Context) ---
-  companyDetails: {
-    name: { type: String},
-    website: String,
-    industry: String,
-    size: { 
-      type: String
-    },
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      country: String,
-      zipCode: String
-    }
-  },
-
-  // --- 3. PIPELINE & STATUS ---
-  leadStatus: {
+const LeadSchema = new mongoose.Schema({
+  leadFirstName: {
     type: String,
-    enum: ['New', 'Attempted to Contact', 'Connected', 'Warm Lead', 'Opportunity', 'Customer', 'Disqualified'],
-    default: 'New',
-    index: true
+    
+    trim: true,
+  },
+  leadLastName: {
+    type: String,
+    
+    trim: true,
+  },
+  leadEmail: {
+    type: String,
+    
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+  leadPhone: {
+    type: String,
+    trim: true,
+  },
+  leadJobTitle: {
+    type: String,
+    trim: true,
+  },
+  leadLinkedIn: {
+    type: String,
+    trim: true,
+  },
+
+  leadAddress: {
+    address: { type: String, trim: true },
+    cityId: {  type: mongoose.Schema.Types.ObjectId,ref:'City', trim: true },
+    stateId: {  type: mongoose.Schema.Types.ObjectId,ref:'State', trim: true },
+    countryId: {  type: mongoose.Schema.Types.ObjectId,ref:'Country', trim: true },
+    zipCode: { type: String, trim: true },
+  },
+
+  leadStatusId: {
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'LeadStatus',
+    
+  },
+  leadSourceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LeadSource', 
+  },
+  leadPotentialValue: {
+    type: Number,
+    default: 0,
   },
   leadScore: {
     type: Number,
-    default: 0, // e.g., +10 for email open, +50 for demo request
-    min: 0
+    default: 0,
   },
-  leadSource: {
+  leadTags: [{
     type: String,
-    enum: ['Organic Search', 'Paid Ads', 'Referral', 'Social Media', 'Event', 'Outbound','Call Logs'],
-    default: 'Organic Search'
-  },
-  potentialValue: {
-    amount: { type: Number, default: 0 },
-    currency: { type: String, default: 'USD' }
-  },
+    trim: true,
+  }],
 
-  // --- 4. ASSIGNMENT & OWNERSHIP ---
-  assignedAgent: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // Link to your Employee/Admin model
-    index: true
-  },
+  leadDocument: [{
+    fileName: { type: String, required: true },
+    fileUrl: { type: String, required: true },
+    uploadDate: { type: Date, default: Date.now },
+  }],
 
-  documentID: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Document', // Link to your Employee/Admin model
-    
-  },
-
-
-  // --- 5. TRACKING & META ---
-  tags: [String], // e.g., "Urgent", "Black Friday Promo", "VIP"
-  lastActivity: { type: Date, default: Date.now },
-  isArchived: { type: Boolean, default: false }, // Soft delete
-
+  leadHistory: [{
+    timestamp: { type: Date, default: Date.now },
+    eventType: { type: String, required: true },
+    details: { type: String },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  }],
 }, {
-  timestamps: true // Adds createdAt and updatedAt automatically
+  timestamps: true 
 });
 
-// Text Index for Global Search (Search by Name, Email, or Company)
-leadSchema.index({ 
-  'contactInfo.firstName': 'text', 
-  'contactInfo.lastName': 'text', 
-  'contactInfo.email': 'text',
-  'companyDetails.name': 'text' 
-});
-
-module.exports = mongoose.model('Lead', leadSchema);
+module.exports = mongoose.model('Lead', LeadSchema);
