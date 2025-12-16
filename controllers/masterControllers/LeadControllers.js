@@ -1,46 +1,61 @@
-const Lead = require('../../models/masterModels/Leads'); // Adjust path to your Lead model
+const Lead = require('../../models/masterModels/Leads'); // Adjust path
+const path = require('path');
+const fs = require('fs'); // For file system operations (e.g., deleting files)
 
-// --- 1. CREATE LEAD ---
+const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents'); 
+
 exports.createLead = async (req, res) => {
-  try {
-    // Destructure expected fields to prevent unwanted data injection
-    const { 
-      contactInfo, 
-      companyDetails, 
-      leadStatus, 
-      leadSource, 
-      assignedAgent,
-      tags 
-    } = req.body;
+  const { 
+    leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
+    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, 
+    leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags 
+  } = req.body;
+  
+  const uploadedFiles = req.files || []; 
 
-    // Check for duplicates (Optional but recommended)
-    const existingLead = await Lead.findOne({ 'contactInfo.email': contactInfo.email });
+  try {
+    const existingLead = await Lead.findOne({ leadEmail });
     if (existingLead) {
+      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
       return res.status(400).json({ 
         success: false, 
         message: 'A lead with this email already exists.' 
       });
     }
 
+    const leadDocument = uploadedFiles.map(file => ({
+      fileName: file.originalname,
+      fileUrl: file.path.replace(DOC_BASE_PATH, ''), // Save relative path or unique filename
+    }));
+    
+    const initialHistory = {
+        eventType: 'Lead Created',
+        details: `Initial lead creation with status: ${leadStatusId}`,
+        leadStatusId: leadStatusId 
+    };
+
     const newLead = new Lead({
-      contactInfo,
-      companyDetails,
-      leadStatus,
-      leadSource,
-      assignedAgent,
-      tags
+      leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
+      leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,
+      leadStatusId, leadSourceId, leadPotentialValue, leadScore,
+      leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
+      leadDocument,
+      leadHistory: [initialHistory]
     });
 
     const savedLead = await newLead.save();
 
     res.status(201).json({
       success: true,
-      message: 'Lead created successfully',
+      message: 'Lead created successfully with documents',
       data: savedLead
     });
 
   } catch (error) {
     console.error("Create Lead Error:", error);
+    uploadedFiles.forEach(file => {
+        try { fs.unlinkSync(file.path); } catch (e) { console.error("Cleanup error:", e); }
+    });
     res.status(500).json({ 
       success: false, 
       message: 'Failed to create lead', 
@@ -49,36 +64,35 @@ exports.createLead = async (req, res) => {
   }
 };
 
-// --- 2. GET ALL LEADS (With Pagination & Filtering via POST) ---
 exports.getAllLeads = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, search } = req.body;
     
     const skip = (page - 1) * limit;
-    let query = { isArchived: false }; // Default: don't show deleted leads
+    let query = {}; // MongoDB doesn't enforce isArchived, assuming you need to add it to your schema/model if you want soft delete
 
-    // Filter by Status
     if (status) {
-      query.leadStatus = status;
+      query.leadStatusId = status;
     }
 
-    // Search Logic (Name, Email, Company)
     if (search) {
       query.$or = [
-        { 'contactInfo.firstName': { $regex: search, $options: 'i' } },
-        { 'contactInfo.lastName': { $regex: search, $options: 'i' } },
-        { 'contactInfo.email': { $regex: search, $options: 'i' } },
-        { 'companyDetails.name': { $regex: search, $options: 'i' } }
+        { 'leadFirstName': { $regex: search, $options: 'i' } },
+        { 'leadLastName': { $regex: search, $options: 'i' } },
+        { 'leadEmail': { $regex: search, $options: 'i' } }
       ];
     }
 
-    // Fetch leads and total count
     const [leads, total] = await Promise.all([
       Lead.find(query)
-        .sort({ createdAt: -1 }) // Newest first
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        .populate('assignedAgent', 'name email',).populate('documentID','documentName'), // Populate agent details if needed
+        .populate('leadStatusId', 'name')
+        .populate('leadSourceId', 'name')
+        .populate('leadCityId', 'name')
+        .populate('leadStateId', 'name')
+        .populate('leadCountryId', 'name'),
       Lead.countDocuments(query)
     ]);
 
@@ -92,20 +106,26 @@ exports.getAllLeads = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Get All Leads Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// --- 3. GET SINGLE LEAD BY ID ---
 exports.getLeadById = async (req, res) => {
   try {
-    const { leadId } = req.body; // ID from body
+    const { leadId } = req.body; 
 
     if (!leadId) {
       return res.status(400).json({ success: false, message: 'Lead ID is required' });
     }
 
-    const lead = await Lead.findById(leadId).populate('assignedAgent', 'name email').populate('documentID','documentName');
+    const lead = await Lead.findById(leadId)
+        .populate('leadStatusId', 'name')
+        .populate('leadSourceId', 'name')
+        .populate('leadCityId', 'name')
+        .populate('leadStateId', 'name')
+        .populate('leadCountryId', 'name')
+        .populate('leadHistory.employeeId', 'name email'); 
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
@@ -117,24 +137,40 @@ exports.getLeadById = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Get Lead by ID Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// --- 4. UPDATE LEAD ---
 exports.updateLead = async (req, res) => {
   try {
-    const { leadId, updateData } = req.body;
+    const { leadId, updateData, employeeId } = req.body; // employeeId is the user making the update
 
     if (!leadId) {
       return res.status(400).json({ success: false, message: 'Lead ID is required' });
     }
 
-    // Update and return the new document
+    const oldLead = await Lead.findById(leadId);
+    if (!oldLead) {
+        return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
+    let historyEntry = null;
+
+    if (updateData.leadStatusId && updateData.leadStatusId.toString() !== oldLead.leadStatusId.toString()) {
+        historyEntry = {
+            eventType: 'Status Change',
+            details: `Status updated from ${oldLead.leadStatusId} to ${updateData.leadStatusId}`,
+            employeeId: employeeId, 
+            leadStatusId: updateData.leadStatusId 
+        };
+        updateData.$push = { leadHistory: historyEntry };
+    }
+    
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
-      { $set: updateData },
-      { new: true, runValidators: true } // new: true returns the updated doc
+      { $set: updateData }, 
+      { new: true, runValidators: true } 
     );
 
     if (!updatedLead) {
@@ -148,73 +184,144 @@ exports.updateLead = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Update Lead Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// --- 5. DELETE LEAD (Soft Delete) ---
+// You must have a LeadStatus document with a known ID for 'Deleted' or 'Archived'.
 exports.deleteLead = async (req, res) => {
   try {
-    const { leadId } = req.body;
+    const { leadId, deletedStatusId } = req.body; // Pass the ID of the 'Deleted' status
 
-    if (!leadId) {
-      return res.status(400).json({ success: false, message: 'Lead ID is required' });
-    }
-
-    // Soft delete: Set isArchived to true
-    const deletedLead = await Lead.findByIdAndUpdate(
-      leadId,
-      { isArchived: true },
-      { new: true }
-    );
-
-    // If you prefer HARD delete (remove from DB completely), use:
-    // const deletedLead = await Lead.findByIdAndDelete(leadId);
-
-    if (!deletedLead) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Lead moved to archive'
-    });
-
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// --- 6. ADD NOTE TO LEAD (Helper for CRM) ---
-exports.addLeadNote = async (req, res) => {
-  try {
-    const { leadId, text, userId } = req.body; // userId is the agent adding the note
-
-    if (!leadId || !text) {
-      return res.status(400).json({ success: false, message: 'Lead ID and note text are required' });
+    if (!leadId || !deletedStatusId) {
+      return res.status(400).json({ success: false, message: 'Lead ID and Deleted Status ID are required' });
     }
 
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
       { 
+        leadStatusId: deletedStatusId,
         $push: { 
-          notes: { 
-            text, 
-            createdBy: userId, 
-            createdAt: new Date() 
-          } 
-        } 
+            leadHistory: {
+                eventType: 'Lead Archived',
+                details: 'Lead soft-deleted (archived) by setting status to Deleted.',
+                leadStatusId: deletedStatusId
+            }
+        }
       },
       { new: true }
     );
 
+    if (!updatedLead) {
+      return res.status(404).json({ success: false, message: 'Lead not found' });
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Note added',
-      data: updatedLead.notes
+      message: 'Lead moved to archive status'
     });
 
   } catch (error) {
+    console.error("Delete Lead Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
+};
+
+exports.addLeadDocument = async (req, res) => {
+    const { leadId } = req.body;
+    const uploadedFile = req.file;
+
+    if (!leadId) {
+        if (uploadedFile) fs.unlinkSync(uploadedFile.path); 
+        return res.status(400).json({ success: false, message: 'Lead ID is required.' });
+    }
+    
+    if (!uploadedFile) {
+        return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    }
+
+    const newDocument = {
+        fileName: uploadedFile.originalname,
+        fileUrl: uploadedFile.path.replace(DOC_BASE_PATH, ''), // Save relative path
+        uploadDate: new Date()
+    };
+    
+    const historyEntry = {
+        eventType: 'Document Added',
+        details: `Document uploaded: ${newDocument.fileName}`,
+        // employeeId: req.user.id // Get from session/token
+        // leadStatusId: oldLead.leadStatusId // Maintain current status in history
+    };
+
+    try {
+        const updatedLead = await Lead.findByIdAndUpdate(
+            leadId,
+            { 
+                $push: { 
+                    leadDocument: newDocument,
+                    leadHistory: historyEntry
+                } 
+            },
+            { new: true }
+        );
+
+        if (!updatedLead) {
+            // Clean up file if lead is not found
+            fs.unlinkSync(uploadedFile.path); 
+            return res.status(404).json({ success: false, message: 'Lead not found.' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Document added and history logged.',
+            data: updatedLead.leadDocument
+        });
+
+    } catch (error) {
+        console.error("Add Document Error:", error);
+        // Clean up file if DB update fails
+        if (uploadedFile) fs.unlinkSync(uploadedFile.path);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
+exports.addLeadNote = async (req, res) => {
+    try {
+      const { leadId, details, employeeId, leadStatusId } = req.body; // Capture current status if applicable
+  
+      if (!leadId || !details) {
+        return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
+      }
+
+      // Check lead status if not provided, for history logging
+      const lead = await Lead.findById(leadId, 'leadStatusId');
+      if (!lead) {
+          return res.status(404).json({ success: false, message: 'Lead not found' });
+      }
+      
+      const newHistoryEntry = { 
+          eventType: 'Note Added', 
+          details: details, 
+          employeeId: employeeId, // User making the note
+          leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
+      };
+  
+      const updatedLead = await Lead.findByIdAndUpdate(
+        leadId,
+        { $push: { leadHistory: newHistoryEntry } },
+        { new: true }
+      );
+  
+      res.status(200).json({
+        success: true,
+        message: 'Note added to lead history',
+        data: updatedLead.leadHistory.slice(-1)[0] // Return the latest history entry
+      });
+  
+    } catch (error) {
+      console.error("Add Lead Note Error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
 };

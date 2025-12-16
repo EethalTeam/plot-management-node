@@ -7,6 +7,7 @@ const VisitorControllers = require('../controllers/mainControllers/VisitorContro
 const PlotControllers = require('../controllers/mainControllers/PlotControllers')
 const DashBoardStats = require('../controllers/mainControllers/DashBoardStats')
 const LeadControllers= require('../controllers/masterControllers/LeadControllers')
+const upload = require('../utils/upload');
 
 router.post('/Log/getAllLogs', LogControllers.getAllLogs )
 router.post('/Log/getFilteredLogs', LogControllers.getFilteredLogs )
@@ -58,11 +59,12 @@ router.post('/getCompletedFollowUps', VisitorControllers.getCompletedFollowUpsBy
 
 router.post('/transferFollowUps', VisitorControllers.transferFollowUps)
 
-router.post('/Lead/getAllLeads', LeadControllers.getAllLeads)
-router.post('/Lead/createLead', LeadControllers.createLead)
-router.post('/Lead/updateLead', LeadControllers.updateLead)
-router.post('/Lead/deleteLeads', LeadControllers.deleteLead)
-router.post('/Lead/addLeadNote', LeadControllers.addLeadNote)
-router.post('/Lead/getLeadById', LeadControllers.getLeadById)
+router.post('/Lead/getAllLeads', LeadControllers.getAllLeads); 
+router.post('/Lead/createLead',upload.array('leadFiles', 5),LeadControllers.createLead);
+router.post('/Lead/updateLead', LeadControllers.updateLead); 
+router.post('/Lead/deleteLeads', LeadControllers.deleteLead);
+router.post('/Lead/getLeadById', LeadControllers.getLeadById);
+router.post('/Lead/addLeadNote', LeadControllers.addLeadNote);
+router.post('/Lead/addLeadDocument',upload.single('leadFile'),LeadControllers.addLeadDocument);
 
 module.exports = router;
