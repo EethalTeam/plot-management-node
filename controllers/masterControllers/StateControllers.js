@@ -1,3 +1,4 @@
+const mongoose = require('mongoose')
 const State = require('../../models/masterModels/State');
 
 // Fields to extract for the response
@@ -34,18 +35,11 @@ exports.createState = async (req, res) => {
 // Get all States
 exports.getAllStates = async (req, res) => {
     try {
-        //option 1 aggregate method
-        const state= await State.aggregate([
-        {
-            $project:{
-                _id:0,
-                StateIDPK:'$_id',
-                StateCode:1,
-                StateName:1,
-                isActive:1
-            }
+      
+        const state= await State.find()
+        if(!state){
+            res.status(400).json({message:"State not found"})
         }
-    ])
         res.status(200).json(state);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -55,7 +49,8 @@ exports.getAllStates = async (req, res) => {
 // Get a single State by name
 exports.getStateByName = async (req, res) => {
     try {
-        const state = await State.findOne({ StateName: req.params.name })
+        const {StateName} = req.body
+        const state = await State.findOne({ StateName: StateName })
     
         if (!state) {
             return res.status(400).json({ message: 'State not found' });
@@ -70,9 +65,9 @@ exports.getStateByName = async (req, res) => {
 // Update a State
 exports.updateState = async (req, res) => {
     try {
-        const {StateIDPK,StateCode,StateName,isActive} = {...req.body};
+        const {_id,StateCode,StateName,isActive} = {...req.body};
         const state = await State.findByIdAndUpdate(
-            StateIDPK,
+            _id,
             { $set:{StateCode,StateName,isActive}},
             { new: true, runValidators: true }
         );

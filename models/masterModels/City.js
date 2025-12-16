@@ -6,13 +6,13 @@ const CitySchema = new mongoose.Schema(
     CityCode: {
       type: String,
       required: true,
-      unique: true,
+      
       trim: true
     },
     CityName: {
       type: String,
       required: true,
-      unique: true,
+      
       trim: true
     },
     StateID: {

@@ -6,13 +6,13 @@ const StateSchema = new mongoose.Schema(
     StateCode: {
       type: String,
       required: true,
-      unique: true,
+     
       trim: true
     },
     StateName: {
       type: String,
       required: true,
-      unique: true,
+    
       trim: true
     },
     description: {

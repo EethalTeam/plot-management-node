@@ -66,8 +66,8 @@ exports.getAllCitys = async (req, res) => {
         },
         {
             $project:{
-                _id:0,
-                CityIDPK:'$_id',
+            
+                _id:'$_id',
                 CityCode:1,
                 CityName:1,
                 StateID:'$StateInfo._id',
@@ -87,7 +87,8 @@ exports.getAllCitys = async (req, res) => {
 // Get a single City by name
 exports.getCityByName = async (req, res) => {
     try {
-        const city = await City.findOne({ CityName: req.params.name })
+        const {CityName} = req.body
+        const city = await City.findOne({ CityName: CityName })
         .populate('StateID', 'StateName StateCode');
     
         if (!city) {
@@ -103,9 +104,9 @@ exports.getCityByName = async (req, res) => {
 // Update a City
 exports.updateCity = async (req, res) => {
     try {
-        const {CityIDPK,CityCode,CityName,StateID,isActive} = {...req.body};
+        const {_id,CityCode,CityName,StateID,isActive} = {...req.body};
         const city = await City.findByIdAndUpdate(
-            CityIDPK,
+            _id,
             { $set:{CityCode,CityName,StateID,isActive}},
             { new: true, runValidators: true }
         );
@@ -152,7 +153,7 @@ exports.getAllStates = async (req, res) => {
             {
                 $project: {
                     _id: 0,
-                    StateIDPK: '$_id',
+                    _id: '$_id',
                     StateCode: '$StateCode',
                     StateName: '$StateName',
                 }
