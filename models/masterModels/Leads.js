@@ -62,7 +62,14 @@ const LeadSchema = new mongoose.Schema({
     fileUrl: { type: String, required: true },
     uploadDate: { type: Date, default: Date.now },
   }],
-
+ leadAssignedId:{
+ type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee', 
+ },
+ leadSiteId:{
+ type: mongoose.Schema.Types.ObjectId,
+    ref: 'Site', 
+ },
   leadHistory: [{
     timestamp: { type: Date, default: Date.now },
     eventType: { type: String, required: true },

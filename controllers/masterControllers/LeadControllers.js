@@ -8,7 +8,7 @@ exports.createLead = async (req, res) => {
   const { 
     leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
     leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, 
-    leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags 
+    leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId
   } = req.body;
   
   const uploadedFiles = req.files || []; 
@@ -37,7 +37,7 @@ exports.createLead = async (req, res) => {
     const newLead = new Lead({
       leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
       leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,
-      leadStatusId, leadSourceId, leadPotentialValue, leadScore,
+      leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,
       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
       leadDocument,
       leadHistory: [initialHistory]
@@ -88,11 +88,13 @@ exports.getAllLeads = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        .populate('leadStatusId', 'name')
-        .populate('leadSourceId', 'name')
-        .populate('leadCityId', 'name')
-        .populate('leadStateId', 'name')
-        .populate('leadCountryId', 'name'),
+        .populate('leadStatusId', 'leadStatustName')
+        .populate('leadSourceId', 'leadSourceName')
+        .populate('leadCityId', 'CityName')
+        .populate('leadStateId', 'StateName')
+        .populate('leadCountryId', 'CountryName')
+        .populate('leadAssignedId', 'EmployeeName')
+        .populate('leadSiteId', 'sitename'),
       Lead.countDocuments(query)
     ]);
 
@@ -120,12 +122,14 @@ exports.getLeadById = async (req, res) => {
     }
 
     const lead = await Lead.findById(leadId)
-        .populate('leadStatusId', 'name')
-        .populate('leadSourceId', 'name')
-        .populate('leadCityId', 'name')
-        .populate('leadStateId', 'name')
-        .populate('leadCountryId', 'name')
-        .populate('leadHistory.employeeId', 'name email'); 
+        .populate('leadStatusId', 'leadStatustName')
+        .populate('leadSourceId', 'leadSourceName')
+        .populate('leadCityId', 'CityName')
+        .populate('leadStateId', 'StateName')
+        .populate('leadCountryId', 'CountryName')
+        .populate('leadAssignedId', 'EmployeeName')
+        .populate('leadSiteId', 'sitename')
+        .populate('leadHistory.employeeId', 'EmployeeName'); 
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
