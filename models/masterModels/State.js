@@ -15,6 +15,11 @@ const StateSchema = new mongoose.Schema(
     
       trim: true
     },
+     CountryID: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Country', 
+            required: true
+          },
     description: {
       type: String,
       trim: true,

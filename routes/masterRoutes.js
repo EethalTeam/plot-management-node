@@ -9,6 +9,7 @@ const UnitController = require('../controllers/masterControllers/UnitControllers
 const SiteController = require('../controllers/masterControllers/SiteControllers')
 const StateController = require('../controllers/masterControllers/StateControllers')
 const CityController = require('../controllers/masterControllers/CityControllers')
+const CountryController = require('../controllers/masterControllers/CountryControllers')
 const RoleController = require('../controllers/masterControllers/RoleControllers')
 const RBACController = require('../controllers/masterControllers/RBACControllers')
 const CallLogController = require('../controllers/masterControllers/callLogControllers')
@@ -64,6 +65,7 @@ router.post('/State/createState', StateController.createState)
 router.post('/State/deleteState', StateController.deleteState)
 router.post('/State/updateState', StateController.updateState)
 router.post('/State/getAllStates', StateController.getAllStates)
+router.post('/State/getAllCountry', StateController.getAllCountry)
 
 //City Routes
 router.post('/City/createCity', CityController.createCity)
@@ -71,6 +73,14 @@ router.post('/City/deleteCity', CityController.deleteCity)
 router.post('/City/updateCity', CityController.updateCity)
 router.post('/City/getAllCitys', CityController.getAllCitys)
 router.post('/City/getAllStates', CityController.getAllStates)
+
+//CountryController
+router.post('/Country/createCountry',CountryController.createCountry)
+router.post('/Country/getAllCountry',CountryController.getAllCountry)
+router.post('/Country/getSingleCountry',CountryController.getCountryByName)
+router.post('/Country/updateCountry',CountryController.updateCountry)
+router.post('/Country/deleteCountry',CountryController.deleteCountry)
+router.post('/Country/getAllStates',CountryController.getAllStates)
 
 // //Role Routes
 // router.post('/Role/createRole', RoleController.createRole)
