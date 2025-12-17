@@ -14,6 +14,8 @@ const RoleController = require('../controllers/masterControllers/RoleControllers
 const RBACController = require('../controllers/masterControllers/RBACControllers')
 const CallLogController = require('../controllers/masterControllers/callLogControllers')
 const DocumentControllers = require('../controllers/masterControllers/DocumentControllers')
+const LeadStatusControllers = require('../controllers/masterControllers/LeadStatusControllers')
+const LeadSourceControllers = require('../controllers/masterControllers/LeadSourceControllers')
 
 //Notification 
 
@@ -104,5 +106,20 @@ router.post('/Document/getAllDocument',DocumentControllers.getAllDocument)
 router.post('/Document/getSingleDocument',DocumentControllers.getDocumentByName)
 router.post('/Document/updateDocument',DocumentControllers.updateDocument)
 router.post('/Document/deleteDocument',DocumentControllers.deleteDocument)
+
+//LeadStatusControllers
+router.post('/LeadStatus/createLeadStatus',LeadStatusControllers.createLeadStatus)
+router.post('/LeadStatus/getAllLeadStatus',LeadStatusControllers.getAllLeadStatus)
+router.post('/LeadStatus/getSingleLeadStatus',LeadStatusControllers.getLeadStatusByName)
+router.post('/LeadStatus/updateLeadStatus',LeadStatusControllers.updateLeadStatus)
+router.post('/LeadStatus/deleteLeadStatus',LeadStatusControllers.deleteLeadStatus)
+
+//LeadSourceControllers
+
+router.post('/LeadSource/createLeadSource',LeadSourceControllers.createLeadSource)
+router.post('/LeadSource/getAllLeadSource',LeadSourceControllers.getAllLeadSource)
+router.post('/LeadSource/getSingleLeadSource',LeadSourceControllers.getLeadSourceByName)
+router.post('/LeadSource/updateLeadSource',LeadSourceControllers.updateLeadSource)
+router.post('/LeadSource/deleteLeadSource',LeadSourceControllers.deleteLeadSource)
 
 module.exports = router;
