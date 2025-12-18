@@ -58,6 +58,9 @@ const LeadSchema = new mongoose.Schema({
   }],
 
   leadDocument: [{
+     documentId:{
+ type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document'},
     fileName: { type: String, required: true },
     fileUrl: { type: String, required: true },
     uploadDate: { type: Date, default: Date.now },
@@ -72,9 +75,9 @@ const LeadSchema = new mongoose.Schema({
  },
   leadHistory: [{
     timestamp: { type: Date, default: Date.now },
-    eventType: { type: String, required: true },
+    eventType: { type: String },
     details: { type: String },
-    employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee'},
+    employeeName: { type: String, ref: 'Employee'},
      leadStatusId: {
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'LeadStatus'

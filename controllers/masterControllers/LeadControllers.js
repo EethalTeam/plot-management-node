@@ -129,7 +129,6 @@ exports.getLeadById = async (req, res) => {
         .populate('leadCountryId', 'CountryName')
         .populate('leadAssignedId', 'EmployeeName')
         .populate('leadSiteId', 'sitename')
-        .populate('leadHistory.employeeId', 'EmployeeName'); 
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
@@ -148,13 +147,14 @@ exports.getLeadById = async (req, res) => {
 
 exports.updateLead = async (req, res) => {
   try {
-    const { leadId, updateData, employeeId } = req.body; // employeeId is the user making the update
+    console.log(req.body,"req.body")
+    const { _id, employeeName,...updateData } = req.body; // employeeName is the user making the update
 
-    if (!leadId) {
+    if (!_id) {
       return res.status(400).json({ success: false, message: 'Lead ID is required' });
     }
 
-    const oldLead = await Lead.findById(leadId);
+    const oldLead = await Lead.findById(_id);
     if (!oldLead) {
         return res.status(404).json({ success: false, message: 'Lead not found' });
     }
@@ -165,14 +165,14 @@ exports.updateLead = async (req, res) => {
         historyEntry = {
             eventType: 'Status Change',
             details: `Status updated from ${oldLead.leadStatusId} to ${updateData.leadStatusId}`,
-            employeeId: employeeId, 
+            employeeName: employeeName, 
             leadStatusId: updateData.leadStatusId 
         };
         updateData.$push = { leadHistory: historyEntry };
     }
     
     const updatedLead = await Lead.findByIdAndUpdate(
-      leadId,
+      _id,
       { $set: updateData }, 
       { new: true, runValidators: true } 
     );
@@ -233,8 +233,9 @@ exports.deleteLead = async (req, res) => {
 };
 
 exports.addLeadDocument = async (req, res) => {
-    const { leadId } = req.body;
-    const uploadedFile = req.file;
+    const { leadId, documentId, employeeName,leadFile } = req.body;
+    console.log( leadId, documentId, employeeName,leadFile," leadId, documentId, employeeName,leadFile")
+    const uploadedFile = leadFile;
 
     if (!leadId) {
         if (uploadedFile) fs.unlinkSync(uploadedFile.path); 
@@ -245,20 +246,28 @@ exports.addLeadDocument = async (req, res) => {
         return res.status(400).json({ success: false, message: 'No file uploaded.' });
     }
 
-    const newDocument = {
-        fileName: uploadedFile.originalname,
-        fileUrl: uploadedFile.path.replace(DOC_BASE_PATH, ''), // Save relative path
-        uploadDate: new Date()
-    };
-    
-    const historyEntry = {
-        eventType: 'Document Added',
-        details: `Document uploaded: ${newDocument.fileName}`,
-        // employeeId: req.user.id // Get from session/token
-        // leadStatusId: oldLead.leadStatusId // Maintain current status in history
-    };
-
     try {
+        const currentLead = await Lead.findById(leadId);
+        if (!currentLead) {
+            if (uploadedFile) fs.unlinkSync(uploadedFile.path);
+            return res.status(404).json({ success: false, message: 'Lead not found.' });
+        }
+
+        const newDocument = {
+            documentId: documentId || null, // Reference to Document master
+            fileName: uploadedFile.originalname,
+            fileUrl: uploadedFile.path, // Or use .replace() for relative paths
+            uploadDate: new Date()
+        };
+        
+        const historyEntry = {
+            timestamp: new Date(),
+            eventType: 'Document Uploaded',
+            details: `Attached document: ${uploadedFile.originalname}`,
+            employeeName: employeeName || null, // Who uploaded it
+            leadStatusId: currentLead.leadStatusId // The status at the time of upload
+        };
+
         const updatedLead = await Lead.findByIdAndUpdate(
             leadId,
             { 
@@ -267,33 +276,29 @@ exports.addLeadDocument = async (req, res) => {
                     leadHistory: historyEntry
                 } 
             },
-            { new: true }
-        );
-
-        if (!updatedLead) {
-            // Clean up file if lead is not found
-            fs.unlinkSync(uploadedFile.path); 
-            return res.status(404).json({ success: false, message: 'Lead not found.' });
-        }
+            { new: true, runValidators: true }
+        ).populate('leadDocument.documentId', 'documentName'); // Optional: populate master doc info
 
         res.status(200).json({
             success: true,
-            message: 'Document added and history logged.',
+            message: 'Document uploaded and interaction logged successfully.',
             data: updatedLead.leadDocument
         });
 
     } catch (error) {
         console.error("Add Document Error:", error);
-        // Clean up file if DB update fails
-        if (uploadedFile) fs.unlinkSync(uploadedFile.path);
-        res.status(500).json({ success: false, message: error.message });
+        // Clean up physical file if database operation fails
+        if (uploadedFile && fs.existsSync(uploadedFile.path)) {
+            fs.unlinkSync(uploadedFile.path);
+        }
+        res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 };
 
 // --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
 exports.addLeadNote = async (req, res) => {
     try {
-      const { leadId, details, employeeId, leadStatusId } = req.body; // Capture current status if applicable
+      const { leadId, details, employeeName, leadStatusId } = req.body; // Capture current status if applicable
   
       if (!leadId || !details) {
         return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
@@ -308,7 +313,7 @@ exports.addLeadNote = async (req, res) => {
       const newHistoryEntry = { 
           eventType: 'Note Added', 
           details: details, 
-          employeeId: employeeId, // User making the note
+          employeeName: employeeName, // User making the note
           leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
       };
   

@@ -61,7 +61,7 @@ router.post('/transferFollowUps', VisitorControllers.transferFollowUps)
 
 router.post('/Lead/getAllLeads', LeadControllers.getAllLeads); 
 router.post('/Lead/createLead',upload.array('leadFiles', 5),LeadControllers.createLead);
-router.post('/Lead/updateLead', LeadControllers.updateLead); 
+router.post('/Lead/updateLead',upload.array('leadFiles', 5), LeadControllers.updateLead); 
 router.post('/Lead/deleteLeads', LeadControllers.deleteLead);
 router.post('/Lead/getLeadById', LeadControllers.getLeadById);
 router.post('/Lead/addLeadNote', LeadControllers.addLeadNote);
