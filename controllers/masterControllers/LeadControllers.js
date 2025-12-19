@@ -148,13 +148,13 @@ exports.getLeadById = async (req, res) => {
 exports.updateLead = async (req, res) => {
   try {
     console.log(req.body,"req.body")
-    const { _id, employeeName,...updateData } = req.body; // employeeName is the user making the update
+    const { leadId, employeeName,...updateData } = req.body; // employeeName is the user making the update
 
-    if (!_id) {
+    if (!leadId) {
       return res.status(400).json({ success: false, message: 'Lead ID is required' });
     }
 
-    const oldLead = await Lead.findById(_id);
+    const oldLead = await Lead.findById(leadId);
     if (!oldLead) {
         return res.status(404).json({ success: false, message: 'Lead not found' });
     }
@@ -172,7 +172,7 @@ exports.updateLead = async (req, res) => {
     }
     
     const updatedLead = await Lead.findByIdAndUpdate(
-      _id,
+      leadId,
       { $set: updateData }, 
       { new: true, runValidators: true } 
     );
