@@ -49,8 +49,7 @@ const LeadSchema = new mongoose.Schema({
     default: 0,
   },
   leadScore: {
-    type: Number,
-    default: 0,
+    type: String
   },
   leadTags: [{
     type: String,
@@ -72,6 +71,10 @@ const LeadSchema = new mongoose.Schema({
  leadSiteId:{
  type: mongoose.Schema.Types.ObjectId,
     ref: 'Site', 
+ },
+ leadNotes:{
+type:String,
+trim:true
  },
   leadHistory: [{
     timestamp: { type: Date, default: Date.now },

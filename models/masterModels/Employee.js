@@ -16,6 +16,14 @@ const employeeSchema = new mongoose.Schema({
     required: true,
    
   },
+  TelecmiID:{
+   type:String,
+   trim:true
+  },
+  TelecmiPassword:{
+   type:String,
+   trim:true
+  },
   employeePhone: {
     type: String,
     required: true

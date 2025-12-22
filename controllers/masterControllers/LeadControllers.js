@@ -7,7 +7,7 @@ const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
 exports.createLead = async (req, res) => {
   const { 
     leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
-    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, 
+    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,
     leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId
   } = req.body;
   
@@ -37,7 +37,7 @@ exports.createLead = async (req, res) => {
     const newLead = new Lead({
       leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
       leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,
-      leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,
+      leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,leadNotes,
       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
       leadDocument,
       leadHistory: [initialHistory]
@@ -148,7 +148,7 @@ exports.getLeadById = async (req, res) => {
 exports.updateLead = async (req, res) => {
   try {
     console.log(req.body,"req.body")
-    const { leadId, employeeName,...updateData } = req.body; // employeeName is the user making the update
+    const { leadId, employeeName,leadHistory,...updateData } = req.body; // employeeName is the user making the update
 
     if (!leadId) {
       return res.status(400).json({ success: false, message: 'Lead ID is required' });
@@ -296,41 +296,41 @@ exports.addLeadDocument = async (req, res) => {
 };
 
 // --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
-exports.addLeadNote = async (req, res) => {
-    try {
-      const { leadId, details, employeeName, leadStatusId } = req.body; // Capture current status if applicable
+// exports.addLeadNote = async (req, res) => {
+//     try {
+//       const { leadId, details, employeeName, leadStatusId } = req.body; // Capture current status if applicable
   
-      if (!leadId || !details) {
-        return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
-      }
+//       if (!leadId || !details) {
+//         return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
+//       }
 
-      // Check lead status if not provided, for history logging
-      const lead = await Lead.findById(leadId, 'leadStatusId');
-      if (!lead) {
-          return res.status(404).json({ success: false, message: 'Lead not found' });
-      }
+//       // Check lead status if not provided, for history logging
+//       const lead = await Lead.findById(leadId, 'leadStatusId');
+//       if (!lead) {
+//           return res.status(404).json({ success: false, message: 'Lead not found' });
+//       }
       
-      const newHistoryEntry = { 
-          eventType: 'Note Added', 
-          details: details, 
-          employeeName: employeeName, // User making the note
-          leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
-      };
+//       const newHistoryEntry = { 
+//           eventType: 'Note Added', 
+//           details: details, 
+//           employeeName: employeeName, // User making the note
+//           leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
+//       };
   
-      const updatedLead = await Lead.findByIdAndUpdate(
-        leadId,
-        { $push: { leadHistory: newHistoryEntry } },
-        { new: true }
-      );
+//       const updatedLead = await Lead.findByIdAndUpdate(
+//         leadId,
+//         { $push: { leadHistory: newHistoryEntry } },
+//         { new: true }
+//       );
   
-      res.status(200).json({
-        success: true,
-        message: 'Note added to lead history',
-        data: updatedLead.leadHistory.slice(-1)[0] // Return the latest history entry
-      });
+//       res.status(200).json({
+//         success: true,
+//         message: 'Note added to lead history',
+//         data: updatedLead.leadHistory.slice(-1)[0] // Return the latest history entry
+//       });
   
-    } catch (error) {
-      console.error("Add Lead Note Error:", error);
-      res.status(500).json({ success: false, message: error.message });
-    }
-};
+//     } catch (error) {
+//       console.error("Add Lead Note Error:", error);
+//       res.status(500).json({ success: false, message: error.message });
+//     }
+// };
