@@ -213,7 +213,6 @@ exports.softDeleteEmployee = async (req, res) => {
 exports.loginEmploye = async (req, res) => {
   try {
     const { EmployeeCode, password } = req.body;
-console.log(EmployeeCode, password ,"EmployeeCode, password ")
     // 1. Reject if request is from mobile device
     const userAgent = req.headers["user-agent"] || "";
     const isMobile = /mobile|android|iphone|ipad|phone/i.test(userAgent);
@@ -223,7 +222,6 @@ console.log(EmployeeCode, password ,"EmployeeCode, password ")
 
     // 2. Find employee by email
     const employee = await Employee.findOne({ EmployeeCode: EmployeeCode }).populate("roleId","RoleName")
-    console.log(employee,"employee")
     if (!employee) {
       return res.status(404).json({ message: "Invalid Employee Code" });
     }

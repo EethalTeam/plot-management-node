@@ -14,7 +14,6 @@ exports.createLead = async (req, res) => {
   } = req.body;
   
   const uploadedFiles = req.files || []; 
-console.log(uploadedFiles,"uploadedFiles")
   try {
     const existingLead = await Lead.findOne({ leadEmail });
     if (existingLead) {
@@ -346,7 +345,6 @@ exports.deleteLead = async (req, res) => {
 
 exports.addLeadDocument = async (req, res) => {
     const { leadId, documentId, employeeName,leadFile } = req.body;
-    console.log( leadId, documentId, employeeName,leadFile," leadId, documentId, employeeName,leadFile")
     const uploadedFile = leadFile;
 
     if (!leadId) {

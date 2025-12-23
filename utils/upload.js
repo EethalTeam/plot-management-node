@@ -9,7 +9,6 @@ const uploadDir = path.join(__dirname, '..', 'lead_documents');
 // 2. AUTOMATICALLY CREATE FOLDER IF MISSING
 // This prevents the "no such file or directory" error
 if (!fs.existsSync(uploadDir)) {
-    console.log("🚀 Creating upload directory...");
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
