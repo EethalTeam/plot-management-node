@@ -152,7 +152,7 @@ exports.getEmployeeById = async (req, res) => {
 // Update Employee
 exports.updateEmployee = async (req, res) => {
   try {
-    const { _id, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress } = req.body;
+    const { _id, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress ,password} = req.body;
 
     const updated = await Employee.findByIdAndUpdate(
       _id,
@@ -161,7 +161,8 @@ exports.updateEmployee = async (req, res) => {
         employeeEmail,
         employeePhone,
         roleId,
-        employeeAddress
+        employeeAddress,
+        password
       },
       { new: true }
     );
@@ -176,6 +177,7 @@ exports.updateEmployee = async (req, res) => {
       message: "Employee updated successfully",
       data: populated
     });
+    
 
   } catch (error) {
     res.status(500).json({ message: "Error updating employee", error: error.message });
@@ -183,27 +185,23 @@ exports.updateEmployee = async (req, res) => {
 };
 
 // Soft Delete Employee (set status to 'inactive')
-exports.softDeleteEmployee = async (req, res) => {
-  try {
-    const { _id } = req.body;
+exports.deleteEmployee = async (req, res) => {
+    try {
+        const { _id } = req.body;
+        if (!mongoose.Types.ObjectId.isValid(_id)) {
+            return res.status(400).json({ message: 'Invalid ID' });
+        }
+        
+        const employee = await Employee.findByIdAndDelete(_id);
 
-    if (!_id) {
-      return res.status(400).json({ message: "Employee ID is required." });
+        if (!employee) {
+            return res.status(400).json({ message: 'Employee not found' });
+        }
+
+        res.status(200).json({ message: 'Employee deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
-
-    const deleted = await Employee.findByIdAndUpdate(
-      _id,
-      { isActive: false },
-      { new: true }
-    );
-
-    if (!deleted) return res.status(404).json({ message: "Employee not found" });
-
-    res.status(200).json({ message: "Employee soft deleted successfully" });
-
-  } catch (error) {
-    res.status(500).json({ message: "Error deleting employee", error: error.message });
-  }
 };
 
 

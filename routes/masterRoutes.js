@@ -34,7 +34,7 @@ router.post('/Auth/login', LoginController.verifyLogin);
 router.post('/Employee/createEmployee', EmployeeController.createEmployee); 
 router.post('/Employee/getAllEmployees', EmployeeController.getAllEmployees);
 router.post('/Employee/updateEmployee', EmployeeController.updateEmployee); 
-router.post('/Employee/softDeleteEmployee',EmployeeController.softDeleteEmployee)
+router.post('/Employee/deleteEmployee',EmployeeController.deleteEmployee)
 // router.post('/exampleRole',EmployeeController.exampleRole)
 
 //login Employee
