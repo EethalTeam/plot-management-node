@@ -4,6 +4,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
+const fs = require('fs'); 
 
 const masterRoutes = require('./routes/masterRoutes');
 const mainRoutes = require('./routes/mainRoutes');
@@ -13,10 +15,23 @@ const CallLogController=require('./controllers/masterControllers/callLogControll
 const app = express();
 const PORT = 8001;
 
-app.use(bodyParser.json());
-app.use(cors());
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cors({
+    origin: ["http://localhost:3000","https://enisivr.grss.in","http://localhost:5173"], 
+    credentials: true
+}));
 require('dotenv').config();
-
+app.use((req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+    res.removeHeader('X-Frame-Options'); 
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'self' http://localhost:5173 http://localhost:3000 https://enisivr.grss.in");
+    
+    next();
+});
+const leadDocsPath = path.resolve(__dirname, 'lead_documents');
+app.use('/api/lead_documents', express.static(leadDocsPath));
 app.get('/api/calls/fetch-all', CallLogController.fetchAllCallLogs);
 app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.use('/api', masterRoutes);

@@ -117,9 +117,7 @@ exports.updateDocument = async (req, res) => {
  */
 exports.deleteDocument = async (req, res) => {
     try {
-        console.log(req,"req.body")
         const { _id } = req.body;
-        console.log(_id,"id")
         if (!mongoose.Types.ObjectId.isValid(_id)) {
             return res.status(400).json({ message: 'Invalid ID' });
         }
