@@ -10,12 +10,12 @@ const unitSchema = new mongoose.Schema(
     // ----------------------
     UnitName: {
       type: String,
-      required: true,
+  
       trim: true,
     },
     UnitCode: {
       type: String,
-      required: true,
+     
       unique: true,
       uppercase: true,
       trim: true,

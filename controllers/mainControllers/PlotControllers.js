@@ -121,7 +121,7 @@ let updateData={siteId, plotNumber,areaInSqFt,cents,description,dimension,facing
 if(!unitId){
   updateData.unitId=unitId
 }
-    const updatedPlot = await Plot.findByIdAndUpdate(id, updateData, {
+    const updatedPlot = await Plot.findByIdAndUpdate(_id, updateData, {
       new: true,
     });
 
@@ -148,7 +148,7 @@ const STATUS_IDS = {
 exports.updatePlotStatus = async (req, res) => {
   try {
     const {
-      plotId,
+      _id,
       soldToVisitorId,
       soldDate,
       bookedBy,
@@ -163,11 +163,11 @@ exports.updatePlotStatus = async (req, res) => {
       interestDate
     } = req.body;
 
-    if (!plotId) {
-      return res.status(400).json({ message: "plotId is required." });
+    if (!_id) {
+      return res.status(400).json({ message: "id is required." });
     }
 
-    const plot = await Plot.findById(plotId);
+    const plot = await Plot.findById(_id);
     if (!plot) {
       return res.status(404).json({ message: "Plot not found." });
     }
@@ -286,7 +286,7 @@ exports.updatePlotStatus = async (req, res) => {
     }
 
     const existingPlotEntry = visitor.plots.find(
-      (entry) => entry.plotId.toString() === plotId
+      (entry) => entry._id.toString() === _id
     );
 
     if (existingPlotEntry) {
@@ -301,7 +301,7 @@ exports.updatePlotStatus = async (req, res) => {
       }
     } else {
       visitor.plots.push({
-        plotId,
+        _id,
         statusId: statusToSet,
         timestamp: dateToUse || new Date()
       });
