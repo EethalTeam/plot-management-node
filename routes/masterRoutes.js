@@ -16,6 +16,7 @@ const CallLogController = require('../controllers/masterControllers/callLogContr
 const DocumentControllers = require('../controllers/masterControllers/DocumentControllers')
 const LeadStatusControllers = require('../controllers/masterControllers/LeadStatusControllers')
 const LeadSourceControllers = require('../controllers/masterControllers/LeadSourceControllers')
+const CompanyControllers = require('../controllers/masterControllers/CompanyControllers')
 
 //Notification 
 
@@ -121,5 +122,14 @@ router.post('/LeadSource/getAllLeadSource',LeadSourceControllers.getAllLeadSourc
 router.post('/LeadSource/getSingleLeadSource',LeadSourceControllers.getLeadSourceByName)
 router.post('/LeadSource/updateLeadSource',LeadSourceControllers.updateLeadSource)
 router.post('/LeadSource/deleteLeadSource',LeadSourceControllers.deleteLeadSource)
+
+
+//CompanyControllers
+
+router.post('/Company/createCompany',CompanyControllers.createCompany)
+router.post('/Company/getAllCompany',CompanyControllers.getAllCompany)
+router.post('/Company/getSingleCompany',CompanyControllers.getCompanyByName)
+router.post('/Company/updateCompany',CompanyControllers.updateCompany)
+router.post('/Company/deleteCompany',CompanyControllers.deleteCompany)
 
 module.exports = router;

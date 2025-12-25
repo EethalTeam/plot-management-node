@@ -1,17 +1,23 @@
 const Employee = require('../../models/masterModels/Employee');
 // const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
+// const { decrypt } = require("../../utils/telecmiCrypto");  //just check TelecmiId and TelecmiPassword 
+const { encrypt } = require("../../utils/telecmiCrypto");
 // const defaultMenus = require('./defaultMenu.json')
 // const UserRights = require('../../models/masterModels/UserRights')
 // const MenuRegistry = require('../../models/masterModels/MenuRegistry')
 // const RoleBased = require("../../models/masterModels/RBAC")
 
+
+// console.log('decrypt =',decrypt('7b6ea9a27df7755972c149e2fe0ddada'))
+// console.log('decrypt =', decrypt('cd50c8dcdc795f6ef6aef8eacc9026cc'))  
+
 // Create Employee
 exports.createEmployee = async (req, res) => {
   try {
-    const { 
-      EmployeeCode, EmployeeName, employeeEmail, 
-      employeePhone, roleId, employeeAddress, password 
+    const {
+      EmployeeCode, EmployeeName, employeeEmail,
+      employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword
     } = req.body;
 
     const existing = await Employee.findOne({
@@ -29,7 +35,9 @@ exports.createEmployee = async (req, res) => {
       employeePhone,
       roleId,
       employeeAddress,
-      password
+      password,
+      TelecmiID: TelecmiID ? encrypt(TelecmiID) : "",
+      TelecmiPassword: TelecmiPassword ? encrypt(TelecmiPassword) : ""
     });
 
     // ✅ Populate RoleName before returning
@@ -46,7 +54,7 @@ exports.createEmployee = async (req, res) => {
   }
 };
 
-        // 4. Fetch all menu registry items
+// 4. Fetch all menu registry items
 // const allMenus = await RoleBased.find({})
 //   .populate("permissions.menuId", "formId parentFormId title")
 //   .lean();
@@ -105,7 +113,7 @@ exports.createEmployee = async (req, res) => {
 //   try {
 //    const roleId="68a44c033dce40b3d0327c03"
 //         const allMenus = await RoleBased.find({}).populate("permissions.menuId","formId parentFormId title").lean();
-    
+
 //         // 5. Build userRights.menus array
 //         const menuPermissions = allMenus.filter(val=>String(val._id) === String(roleId)).flatMap((menu) => {
 //          return menu.permissions.map(v=>({
@@ -119,7 +127,7 @@ exports.createEmployee = async (req, res) => {
 //             isDelete: v.isDelete
 //           }))
 //         });
-    
+
 //   } catch (error) {
 //     res.status(500).json({ message: 'Error creating employee', error: error.message });
 //   }
@@ -128,7 +136,7 @@ exports.createEmployee = async (req, res) => {
 // Get All Employees (optional filter by active)
 exports.getAllEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find({ isActive: true }).populate('roleId','RoleName');
+    const employees = await Employee.find({ isActive: true }).populate('roleId', 'RoleName');
     res.status(200).json({ data: employees });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching employees', error: error.message });
@@ -138,7 +146,7 @@ exports.getAllEmployees = async (req, res) => {
 // Get Employee by ID
 exports.getEmployeeById = async (req, res) => {
   try {
-       const { _id } = req.body; 
+    const { _id } = req.body;
 
     const employee = await Employee.findById(_id)
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
@@ -152,18 +160,23 @@ exports.getEmployeeById = async (req, res) => {
 // Update Employee
 exports.updateEmployee = async (req, res) => {
   try {
-    const { _id, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress ,password} = req.body;
+    const { _id, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword } = req.body;
+    const updateData = {
+      EmployeeName,
+      employeeEmail,
+      employeePhone,
+      roleId,
+      employeeAddress,
+      password
+    };
+    //  Encrypt ONLY if provided
+    if (TelecmiID) { updateData.TelecmiID = encrypt(TelecmiID) }
+
+    if (TelecmiPassword) { updateData.TelecmiPassword = encrypt(TelecmiPassword); }
 
     const updated = await Employee.findByIdAndUpdate(
       _id,
-      {
-        EmployeeName,
-        employeeEmail,
-        employeePhone,
-        roleId,
-        employeeAddress,
-        password
-      },
+      updateData,
       { new: true }
     );
 
@@ -177,7 +190,7 @@ exports.updateEmployee = async (req, res) => {
       message: "Employee updated successfully",
       data: populated
     });
-    
+
 
   } catch (error) {
     res.status(500).json({ message: "Error updating employee", error: error.message });
@@ -186,22 +199,22 @@ exports.updateEmployee = async (req, res) => {
 
 // Soft Delete Employee (set status to 'inactive')
 exports.deleteEmployee = async (req, res) => {
-    try {
-        const { _id } = req.body;
-        if (!mongoose.Types.ObjectId.isValid(_id)) {
-            return res.status(400).json({ message: 'Invalid ID' });
-        }
-        
-        const employee = await Employee.findByIdAndDelete(_id);
-
-        if (!employee) {
-            return res.status(400).json({ message: 'Employee not found' });
-        }
-
-        res.status(200).json({ message: 'Employee deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+  try {
+    const { _id } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(_id)) {
+      return res.status(400).json({ message: 'Invalid ID' });
     }
+
+    const employee = await Employee.findByIdAndDelete(_id);
+
+    if (!employee) {
+      return res.status(400).json({ message: 'Employee not found' });
+    }
+
+    res.status(200).json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
@@ -219,7 +232,7 @@ exports.loginEmploye = async (req, res) => {
     // }
 
     // 2. Find employee by email
-    const employee = await Employee.findOne({ EmployeeCode: EmployeeCode }).populate("roleId","RoleName")
+    const employee = await Employee.findOne({ EmployeeCode: EmployeeCode }).populate("roleId", "RoleName")
     if (!employee) {
       return res.status(404).json({ message: "Invalid Employee Code" });
     }
@@ -240,7 +253,9 @@ exports.loginEmploye = async (req, res) => {
         _id: employee._id,
         EmployeeName: employee.EmployeeName,
         EmployeeCode: employee.EmployeeCode,
-        role:employee.roleId.RoleName
+        role: employee.roleId.RoleName,
+        TelecmiID: employee.TelecmiID || null,
+        TelecmiPassword: employee.TelecmiPassword || null
       },
     });
 
