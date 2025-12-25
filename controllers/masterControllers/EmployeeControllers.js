@@ -1,16 +1,13 @@
 const Employee = require('../../models/masterModels/Employee');
 // const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
-// const { decrypt } = require("../../utils/telecmiCrypto");  //just check TelecmiId and TelecmiPassword 
-const { encrypt } = require("../../utils/telecmiCrypto");
+
 // const defaultMenus = require('./defaultMenu.json')
 // const UserRights = require('../../models/masterModels/UserRights')
 // const MenuRegistry = require('../../models/masterModels/MenuRegistry')
 // const RoleBased = require("../../models/masterModels/RBAC")
 
-
-// console.log('decrypt =',decrypt('7b6ea9a27df7755972c149e2fe0ddada'))
-// console.log('decrypt =', decrypt('cd50c8dcdc795f6ef6aef8eacc9026cc'))  
+ 
 
 // Create Employee
 exports.createEmployee = async (req, res) => {
@@ -36,8 +33,8 @@ exports.createEmployee = async (req, res) => {
       roleId,
       employeeAddress,
       password,
-      TelecmiID: TelecmiID ? encrypt(TelecmiID) : "",
-      TelecmiPassword: TelecmiPassword ? encrypt(TelecmiPassword) : ""
+      TelecmiID,
+      TelecmiPassword
     });
 
     // ✅ Populate RoleName before returning
@@ -160,23 +157,12 @@ exports.getEmployeeById = async (req, res) => {
 // Update Employee
 exports.updateEmployee = async (req, res) => {
   try {
-    const { _id, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword } = req.body;
-    const updateData = {
-      EmployeeName,
-      employeeEmail,
-      employeePhone,
-      roleId,
-      employeeAddress,
-      password
-    };
-    //  Encrypt ONLY if provided
-    if (TelecmiID) { updateData.TelecmiID = encrypt(TelecmiID) }
-
-    if (TelecmiPassword) { updateData.TelecmiPassword = encrypt(TelecmiPassword); }
+    const { _id,EmployeeCode, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword } = req.body;
+  
 
     const updated = await Employee.findByIdAndUpdate(
       _id,
-      updateData,
+  {  EmployeeCode,EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword},
       { new: true }
     );
 
@@ -254,8 +240,11 @@ exports.loginEmploye = async (req, res) => {
         EmployeeName: employee.EmployeeName,
         EmployeeCode: employee.EmployeeCode,
         role: employee.roleId.RoleName,
-        TelecmiID: employee.TelecmiID || null,
-        TelecmiPassword: employee.TelecmiPassword || null
+        TelecmiID:employee.TelecmiID,
+        TelecmiPassword:employee.TelecmiPassword
+
+
+      
       },
     });
 
