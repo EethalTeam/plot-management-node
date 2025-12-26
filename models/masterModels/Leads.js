@@ -90,4 +90,5 @@ trim:true
   timestamps: true 
 });
 
-module.exports = mongoose.model('Lead', LeadSchema);
+const Leadmodel = mongoose.model('Lead', LeadSchema);
+module.exports = Leadmodel

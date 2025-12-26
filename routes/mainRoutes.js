@@ -5,8 +5,9 @@ const MenuControllers = require('../controllers/mainControllers/MenuControllers'
 const UserRightsControllers = require('../controllers/mainControllers/UserRightsControllers')
 const VisitorControllers = require('../controllers/mainControllers/VisitorControllers')
 const PlotControllers = require('../controllers/mainControllers/PlotControllers')
-const DashBoardStats = require('../controllers/mainControllers/DashBoardStats')
+// const DashBoardStats = require('../controllers/mainControllers/DashBoardStats')
 const LeadControllers= require('../controllers/masterControllers/LeadControllers')
+const DashboardControllers = require('../controllers/mainControllers/DashBoardControllers')
 const upload = require('../utils/upload');
 
 router.post('/Log/getAllLogs', LogControllers.getAllLogs )
@@ -53,11 +54,16 @@ router.post('/Plot/getAllUnits', PlotControllers.getAllUnits)
 router.post('/Plot/getAllVisitors', PlotControllers.getAllVisitors)
 router.post('/Plot/updatePlotStatus', PlotControllers.updatePlotStatus)
 
-router.post('/DashBoardStats', DashBoardStats.getDashboardStats)
+// router.post('/DashBoardStats', DashBoardStats.getDashboardStats)
 router.post('/getPendingFollowUps', VisitorControllers.getPendingFollowUpsByEmployee)
 router.post('/getCompletedFollowUps', VisitorControllers.getCompletedFollowUpsByEmployee)
 
 router.post('/transferFollowUps', VisitorControllers.transferFollowUps)
+
+//DashboardControllers
+router.post('/DashBoard/getAllDashBoard',DashboardControllers.getAllDashBoard)
+router.post('/DashBoard/getDayWiseAnsweredCalls',DashboardControllers.getDayWiseAnsweredCalls) //for forntend bychartgetLeadsBySource
+router.post('/DashBoard/getLeadsBySource',DashboardControllers.getLeadsBySource) //getLeadsBySource
 
 router.post('/Lead/getAllLeads', LeadControllers.getAllLeads); 
 router.post('/Lead/createLead',upload.array('leadFiles', 5),LeadControllers.createLead);
