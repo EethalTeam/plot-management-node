@@ -10,22 +10,9 @@ const mongoose = require('mongoose');
  
 
 // Create Employee
-exports.createEmployee = async (req, res) => {
+ exports.createEmployee = async (req, res) => {
   try {
     const {
-      EmployeeCode, EmployeeName, employeeEmail,
-      employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword,SiteId
-    } = req.body;
-
-    const existing = await Employee.findOne({
-      $or: [{ employeeEmail }, { EmployeeCode }]
-    });
-
-    if (existing) {
-      return res.status(400).json({ message: "Employee email or code already exists" });
-    }
-
-    const savedEmployee = await Employee.create({
       EmployeeCode,
       EmployeeName,
       employeeEmail,
@@ -36,14 +23,48 @@ exports.createEmployee = async (req, res) => {
       TelecmiID,
       TelecmiPassword,
       SiteId
-      
+    } = req.body;
+
+    const existing = await Employee.findOne({
+      $or: [{ employeeEmail }, { EmployeeCode }]
     });
 
-    // ✅ Populate RoleName before returning
-    const populated = await Employee.findById(savedEmployee._id)
-      .populate("roleId", "RoleName").populate('SiteId',"sitename")
+    if (existing) {
+      return res.status(400).json({
+        message: "Employee email or code already exists"
+      });
+    }
 
-    return res.status(201).json({ data: populated });
+    //  Build payload safely
+    const createEmployee = {
+      EmployeeCode,
+      EmployeeName,
+      employeeEmail,
+      employeePhone,
+      roleId,
+      employeeAddress,
+      password,
+      TelecmiID,
+      TelecmiPassword,
+    };
+
+    //  Add SiteId only if present
+    if (SiteId) {
+      createEmployee.SiteId = SiteId;
+    }
+
+    //  FIX HERE
+    const savedEmployee = await Employee.create(createEmployee);
+
+    //  Populate before sending response
+    const populated = await Employee.findById(savedEmployee._id)
+      .populate("roleId", "RoleName")
+      .populate("SiteId", "sitename");
+
+    return res.status(201).json({
+      message: "Employee created successfully",
+      data: populated
+    });
 
   } catch (error) {
     return res.status(500).json({
@@ -52,6 +73,7 @@ exports.createEmployee = async (req, res) => {
     });
   }
 };
+
 
 // 4. Fetch all menu registry items
 // const allMenus = await RoleBased.find({})
