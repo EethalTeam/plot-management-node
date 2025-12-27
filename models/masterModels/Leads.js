@@ -22,6 +22,10 @@ const LeadSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+    leadAltPhone: {
+    type: String,
+    trim: true,
+  },
   leadJobTitle: {
     type: String,
     trim: true,

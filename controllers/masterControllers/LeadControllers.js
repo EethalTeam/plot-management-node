@@ -10,7 +10,7 @@ exports.createLead = async (req, res) => {
   const { 
     leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
     leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,
-    leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId, documentIds
+    leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId, documentIds,leadAltPhone
   } = req.body;
   
   const uploadedFiles = req.files || []; 
@@ -46,7 +46,7 @@ const leadDocument = uploadedFiles.map((file, index) => ({
 
     const newLead = new Lead({
       leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
-      leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,
+      leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,leadAltPhone,
       leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,leadNotes,
       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
       leadDocument,

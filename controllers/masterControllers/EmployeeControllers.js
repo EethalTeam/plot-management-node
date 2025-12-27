@@ -36,6 +36,7 @@ exports.createEmployee = async (req, res) => {
       TelecmiID,
       TelecmiPassword,
       SiteId
+      
     });
 
     // ✅ Populate RoleName before returning
@@ -156,33 +157,70 @@ exports.getEmployeeById = async (req, res) => {
 };
 
 // Update Employee
-exports.updateEmployee = async (req, res) => {
+ 
+
+
+  exports.updateEmployee = async (req, res) => {
   try {
-    const { _id,EmployeeCode, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword,SiteId } = req.body;
-  
+    const {
+      _id,
+      EmployeeCode,
+      EmployeeName,
+      employeeEmail,
+      employeePhone,
+      roleId,
+      employeeAddress,
+      password,
+      TelecmiID,
+      TelecmiPassword,
+      SiteId,
+      
+    } = req.body;
+
+    //  Build update object safely
+    const updateData = {
+      EmployeeCode,
+      EmployeeName,
+      employeeEmail,
+      employeePhone,
+      roleId,
+      employeeAddress,
+      password,
+      TelecmiID,
+      TelecmiPassword,
+    
+    };
+
+    //  Add SiteId only if it exists
+    if (SiteId) {
+      updateData.SiteId = SiteId;
+    }
 
     const updated = await Employee.findByIdAndUpdate(
       _id,
-  {  EmployeeCode,EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword,SiteId},
+      updateData,
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Employee not found" });
+    if (!updated) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
 
-    // ❗ Populate RoleName before sending back
+    //  Safe populate (no error if SiteId is missing)
     const populated = await Employee.findById(updated._id)
-      .populate("roleId", "RoleName").populate('SiteId','sitename');
+      .populate("roleId", "RoleName")
+      .populate("SiteId", "sitename");
 
     res.status(200).json({
       message: "Employee updated successfully",
       data: populated
     });
 
-
   } catch (error) {
-    res.status(500).json({ message: "Error updating employee", error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
+
 
 // Soft Delete Employee (set status to 'inactive')
 exports.deleteEmployee = async (req, res) => {
