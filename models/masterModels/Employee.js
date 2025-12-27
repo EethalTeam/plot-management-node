@@ -32,6 +32,10 @@ const employeeSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "RoleBased"
   },
+  SiteId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Site"
+  },
   employeeAddress: {
     type: String
   },

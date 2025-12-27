@@ -14,7 +14,7 @@ exports.createEmployee = async (req, res) => {
   try {
     const {
       EmployeeCode, EmployeeName, employeeEmail,
-      employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword
+      employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword,SiteId
     } = req.body;
 
     const existing = await Employee.findOne({
@@ -34,12 +34,13 @@ exports.createEmployee = async (req, res) => {
       employeeAddress,
       password,
       TelecmiID,
-      TelecmiPassword
+      TelecmiPassword,
+      SiteId
     });
 
     // ✅ Populate RoleName before returning
     const populated = await Employee.findById(savedEmployee._id)
-      .populate("roleId", "RoleName");
+      .populate("roleId", "RoleName").populate('SiteId',"sitename")
 
     return res.status(201).json({ data: populated });
 
@@ -133,7 +134,7 @@ exports.createEmployee = async (req, res) => {
 // Get All Employees (optional filter by active)
 exports.getAllEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find({ isActive: true }).populate('roleId', 'RoleName');
+    const employees = await Employee.find({ isActive: true }).populate('roleId', 'RoleName').populate('SiteId','sitename');
     res.status(200).json({ data: employees });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching employees', error: error.message });
@@ -157,12 +158,12 @@ exports.getEmployeeById = async (req, res) => {
 // Update Employee
 exports.updateEmployee = async (req, res) => {
   try {
-    const { _id,EmployeeCode, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword } = req.body;
+    const { _id,EmployeeCode, EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword,SiteId } = req.body;
   
 
     const updated = await Employee.findByIdAndUpdate(
       _id,
-  {  EmployeeCode,EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword},
+  {  EmployeeCode,EmployeeName, employeeEmail, employeePhone, roleId, employeeAddress, password, TelecmiID, TelecmiPassword,SiteId},
       { new: true }
     );
 
@@ -170,7 +171,7 @@ exports.updateEmployee = async (req, res) => {
 
     // ❗ Populate RoleName before sending back
     const populated = await Employee.findById(updated._id)
-      .populate("roleId", "RoleName");
+      .populate("roleId", "RoleName").populate('SiteId','sitename');
 
     res.status(200).json({
       message: "Employee updated successfully",
@@ -241,7 +242,8 @@ exports.loginEmploye = async (req, res) => {
         EmployeeCode: employee.EmployeeCode,
         role: employee.roleId.RoleName,
         TelecmiID:employee.TelecmiID,
-        TelecmiPassword:employee.TelecmiPassword
+        TelecmiPassword:employee.TelecmiPassword,
+        SiteId:employee.SiteId
 
 
       

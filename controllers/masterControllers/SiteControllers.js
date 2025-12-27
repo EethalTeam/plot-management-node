@@ -54,6 +54,7 @@ exports.createSite = async (req, res) => {
 exports.getAllSites = async (req, res) => {
   try {
     const filters = req.body || {};
+    console.log(filters,"filters")
     const properties = await Site.find(filters)
       .populate('city')
       .populate('state')

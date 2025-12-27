@@ -66,7 +66,7 @@ createDatas.unitId=unitId
 exports.getAllPlots = async (req, res) => {
   try {
     const { unitId, siteId } = req.body;
-    let filter = { isActive: true };
+    let filter = { };
 
     // Filter by Unit if provided
     if (unitId) {
