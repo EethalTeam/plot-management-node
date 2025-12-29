@@ -26,8 +26,8 @@ const getTelecmiToken = async () => {
   }
 
   const data = await response.json();
-  
-  return data.token; 
+
+  return data.token;
 };
 
 const TELECMI_TOKEN = 'd18ce16a-5b80-49be-b682-072eaf3e85b7';
@@ -43,44 +43,44 @@ const fetchTelecmiData = async (endpoint, body, token) => {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(apiBody), 
+    body: JSON.stringify(apiBody),
   });
-  
+
   if (!response.ok) {
-    const errorData = await response.json(); 
+    const errorData = await response.json();
     console.error(`Telecmi API Error (${response.status})`, errorData);
     throw new Error(errorData.message || `Telecmi API request failed`);
   }
   return response.json();
 };
 
-const normalizeInCall = (call,status) => ({
-  cmiuid: call.cmiuid, 
-  direction: 'Inbound', 
-  status: status, 
+const normalizeInCall = (call, status) => ({
+  cmiuid: call.cmiuid,
+  direction: 'Inbound',
+  status: status,
   from: call.from,
   to: call.to,
   time: call.time,
-  answeredsec: call.answeredsec, 
+  answeredsec: call.answeredsec,
   filename: call.filename,
 });
 
 
 const normalizeOutCall = (call, status) => ({
-  cmiuid: call.cmiuid, 
+  cmiuid: call.cmiuid,
   direction: 'Outbound',
-  status: status, 
+  status: status,
   from: call.from,
-  to: call.to, 
+  to: call.to,
   time: call.time,
-  answeredsec: call.duration || call.billedsec || 0, 
+  answeredsec: call.duration || call.billedsec || 0,
   filename: call.filename,
 });
 
 exports.fetchAllCallLogs = async (req, res) => {
   try {
     const userToken = await getTelecmiToken();
-    console.log(userToken,"userToken")
+    console.log(userToken, "userToken")
     if (!userToken) {
       throw new Error('Failed to authenticate with Telecmi');
     }
@@ -109,17 +109,17 @@ exports.fetchAllCallLogs = async (req, res) => {
     ]);
 
     // --- 4. NORMALIZE THE DATA ---
-    const normIncomingAnswered = (incomingAnswered.cdr || []).map(call=>normalizeInCall(call, 'Answered'));
-    const normIncomingMissed = (incomingMissed.cdr || []).map(call=>normalizeInCall(call, 'Missed'));
-    
+    const normIncomingAnswered = (incomingAnswered.cdr || []).map(call => normalizeInCall(call, 'Answered'));
+    const normIncomingMissed = (incomingMissed.cdr || []).map(call => normalizeInCall(call, 'Missed'));
+
     // For outgoing, we pass the status we already know
     const normOutgoingAnswered = (outgoingAnswered.cdr || []).map(call => normalizeOutCall(call, 'Answered'));
     const normOutgoingMissed = (outgoingMissed.cdr || []).map(call => normalizeOutCall(call, 'Missed'));
 
-    console.log(normIncomingAnswered,"incomingAnswered")
-console.log(normIncomingMissed,"incomingMissed")
-console.log(normOutgoingAnswered,"outgoingAnswered")
-console.log(normOutgoingMissed,"outgoingMissed")
+    console.log(normIncomingAnswered, "incomingAnswered")
+    console.log(normIncomingMissed, "incomingMissed")
+    console.log(normOutgoingAnswered, "outgoingAnswered")
+    console.log(normOutgoingMissed, "outgoingMissed")
 
     const allCalls = [
       ...normIncomingAnswered,
@@ -157,14 +157,14 @@ exports.handleTelecmiWebhook = async (req, res) => {
       return res.status(400).send('No payload received');
     }
 
-    console.log('--- Telecmi Webhook Received ---',payload);
+    console.log('--- Telecmi Webhook Received ---', payload);
     // console.log(payload); // Uncomment to debug
 
     const newLog = new TelecmiLog({
-      ...payload, 
-      
+      ...payload,
+
       // Convert timestamp to Date object
-      callDate: new Date(payload.time) 
+      callDate: new Date(payload.time)
     });
 
     await newLog.save();
@@ -186,15 +186,18 @@ exports.handleTelecmiWebhook = async (req, res) => {
 exports.getCallLogs = async (req, res) => {
   try {
     // 1. Destructure query parameters for filtering & pagination
-    const { 
-      page = 1, 
-      limit = 10, 
-      direction, 
-      status, 
+    const {
+      page = 1,
+      limit = 10,
+      direction,
+      status,
       search,
       startDate,
-      endDate 
-    } = req.query;
+      endDate,
+      TelecmiID,
+      role
+    } = req.body;
+    console.log(req.body,"req.body")
 
     // 2. Build the Query Object
     const query = {};
@@ -202,6 +205,15 @@ exports.getCallLogs = async (req, res) => {
     // Filter by Direction (inbound/outbound)
     if (direction) {
       query.direction = direction;
+    }
+
+    //  ROLE + TELECMI SECURITY RULE
+    if (role === 'AGENT' && !TelecmiID) {
+      return res.status(200).json({ data: [] });
+    }
+
+    if ( TelecmiID ) {
+      query.user = TelecmiID;
     }
 
     // Filter by Status (answered/missed)
@@ -213,7 +225,7 @@ exports.getCallLogs = async (req, res) => {
     if (startDate || endDate) {
       query.callDate = {};
       if (startDate) query.callDate.$gte = new Date(startDate);
-      if (endDate)   query.callDate.$lte = new Date(endDate);
+      if (endDate) query.callDate.$lte = new Date(endDate);
     }
 
     // Search functionality (Search by Agent Name, From Number, or To Number)
@@ -223,7 +235,7 @@ exports.getCallLogs = async (req, res) => {
         { user: searchRegex },        // Agent ID
         { team: searchRegex },        // Team Name
       ];
-      
+
       // If search term is a number, check exact match on numeric fields
       if (!isNaN(search)) {
         query.$or.push({ from: Number(search) });
@@ -248,7 +260,7 @@ exports.getCallLogs = async (req, res) => {
     // 5. Transform the logs to include the Audio URL
     const logsWithAudio = logs.map(log => {
       let recordingUrl = null;
-      
+
       if (log.filename) {
         // Construct the Telecmi Play URL
         recordingUrl = `https://rest.telecmi.com/v2/play?appid=${TELECMI_APP_ID}&secret=${TELECMI_APP_SECRET}&file=${log.filename}`;
@@ -294,7 +306,7 @@ exports.qualifyCallLog = async (req, res) => {
     // 2. Determine the Customer's Phone Number
     // Based on your schema notes: Inbound = 'from' is customer, Outbound = 'to' is customer
     let customerPhone = '';
-    
+
     if (callLog.direction === 'inbound') {
       customerPhone = callLog.from ? String(callLog.from) : '';
     } else {
@@ -307,13 +319,13 @@ exports.qualifyCallLog = async (req, res) => {
     }
 
     // 3. Check if Lead already exists (Optional but recommended)
-    const existingLead = await Lead.findOne({ 
-      'contactInfo.phone': customerPhone 
+    const existingLead = await Lead.findOne({
+      'contactInfo.phone': customerPhone
     });
 
     if (existingLead) {
-      return res.status(409).json({ 
-        success: false, 
+      return res.status(409).json({
+        success: false,
         message: 'Lead already exists with this phone number',
         lead: existingLead
       });
@@ -334,11 +346,11 @@ exports.qualifyCallLog = async (req, res) => {
       // We create an initial note with the call recording and details
       notes: [
         {
-            text: `Auto-qualified from Call Log. 
+          text: `Auto-qualified from Call Log. 
             Duration: ${callLog.answeredsec}s. 
             Status: ${callLog.status}. 
             Recording: ${callLog.filename || 'N/A'}`,
-            createdAt: new Date()
+          createdAt: new Date()
         }
       ]
     };
@@ -358,10 +370,10 @@ exports.qualifyCallLog = async (req, res) => {
 
   } catch (error) {
     console.error('Error qualifying lead:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server Error', 
-      error: error.message 
+    return res.status(500).json({
+      success: false,
+      message: 'Server Error',
+      error: error.message
     });
   }
 };
