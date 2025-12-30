@@ -64,6 +64,8 @@ router.post('/transferFollowUps', VisitorControllers.transferFollowUps)
 router.post('/DashBoard/getAllDashBoard',DashboardControllers.getAllDashBoard)
 router.post('/DashBoard/getDayWiseAnsweredCalls',DashboardControllers.getDayWiseAnsweredCalls) //for forntend bychartgetLeadsBySource
 router.post('/DashBoard/getLeadsBySource',DashboardControllers.getLeadsBySource) //getLeadsBySource
+router.post("/DashBoard/getCallStatusReport", DashboardControllers.getCallStatusReport);
+
 
 router.post('/Lead/getAllLeads', LeadControllers.getAllLeads); 
 router.post('/Lead/createLead',upload.array('leadFiles', 5),LeadControllers.createLead);
