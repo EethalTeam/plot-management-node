@@ -9,7 +9,7 @@ const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
 
 exports.createLead = async (req, res) => {
   const { 
-  leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
+  leadUnitId, leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
     leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,
     leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId, documentIds,leadAltPhone
   } = req.body;
@@ -51,7 +51,7 @@ const leadDocument = uploadedFiles.map((file, index) => ({
   // res.status(201).json({purpose :'testing'})
 
     const newLead = new Lead({
-    leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
+    leadUnitId, leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
       leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,leadAltPhone,
       leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,leadNotes,
       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
@@ -116,7 +116,8 @@ console.log(query,"query")
         .populate('leadStateId', 'StateName')
         .populate('leadCountryId', 'CountryName')
         .populate('leadAssignedId', 'EmployeeName')
-        .populate('leadSiteId', 'sitename'),
+        .populate('leadSiteId', 'sitename')
+        .populate('leadUnitId','UnitName'),
       Lead.countDocuments(query)
     ]);
 
@@ -151,6 +152,7 @@ exports.getLeadById = async (req, res) => {
         .populate('leadCountryId', 'CountryName')
         .populate('leadAssignedId', 'EmployeeName')
         .populate('leadSiteId', 'sitename')
+        .populate('leadUnitId','UnitName')
 
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });

@@ -48,6 +48,10 @@ const LeadSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'LeadSource', 
   },
+  leadUnitId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Unit', 
+  },
   leadPotentialValue: {
     type: Number,
     default: 0,
