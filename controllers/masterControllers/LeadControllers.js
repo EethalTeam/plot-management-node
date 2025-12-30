@@ -21,9 +21,11 @@ exports.createLead = async (req, res) => {
       uploadedFiles.forEach(file => fs.unlinkSync(file.path));
       return res.status(400).json({ 
         success: false, 
-        message: 'A lead with this email already exists.' 
+        message: 'A lead with this phone already exists.' 
       });
+      
     }
+    console.log(existingLead,"existingLead")
 
 const leadDocument = uploadedFiles.map((file, index) => ({
       documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds,
@@ -44,6 +46,9 @@ const leadDocument = uploadedFiles.map((file, index) => ({
         details: `Initial lead creation with status: ${LeadStatusExists.leadStatustName}`,
         leadStatusId: leadStatusId 
     };
+  console.log(leadPhone,"leadPhone")
+
+  // res.status(201).json({purpose :'testing'})
 
     const newLead = new Lead({
     leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,

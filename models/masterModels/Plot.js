@@ -30,6 +30,9 @@ const plotSchema = new mongoose.Schema({
   cents: {
     type: Number,
   },
+   SquareFeet: {
+    type: Number,
+  },
   facing: {
     type: String,
     enum: ["East", "West", "North", "South", "NE", "NW", "SE", "SW"],
