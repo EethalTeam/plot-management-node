@@ -3,19 +3,20 @@ const Employee = require('../../models/masterModels/Employee'); // Adjust path
 const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
 const path = require('path');
 const fs = require('fs'); // For file system operations (e.g., deleting files)
+const { default: mongoose } = require('mongoose');
 
 const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents'); 
 
 exports.createLead = async (req, res) => {
   const { 
-    leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
+  leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
     leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,
     leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId, documentIds,leadAltPhone
   } = req.body;
   
   const uploadedFiles = req.files || []; 
   try {
-    const existingLead = await Lead.findOne({ leadEmail });
+    const existingLead = await Lead.findOne({ leadPhone });
     if (existingLead) {
       uploadedFiles.forEach(file => fs.unlinkSync(file.path));
       return res.status(400).json({ 
@@ -45,7 +46,7 @@ const leadDocument = uploadedFiles.map((file, index) => ({
     };
 
     const newLead = new Lead({
-      leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
+    leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
       leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,leadAltPhone,
       leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,leadNotes,
       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
@@ -76,13 +77,19 @@ const leadDocument = uploadedFiles.map((file, index) => ({
 
 exports.getAllLeads = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search } = req.body;
+    const { page = 1, limit = 20, status, search,EmployeeId } = req.body;
     
     const skip = (page - 1) * limit;
     let query = {}; // MongoDB doesn't enforce isArchived, assuming you need to add it to your schema/model if you want soft delete
 
     if (status) {
       query.leadStatusId = status;
+    }
+    if(EmployeeId){
+       query.$or = [
+     { leadCreatedById:new mongoose.Types.ObjectId(EmployeeId)},
+      {leadAssignedId:new mongoose.Types.ObjectId(EmployeeId)}
+       ]
     }
 
     if (search) {
@@ -92,7 +99,7 @@ exports.getAllLeads = async (req, res) => {
         { 'leadEmail': { $regex: search, $options: 'i' } }
       ];
     }
-
+console.log(query,"query")
     const [leads, total] = await Promise.all([
       Lead.find(query)
         .sort({ createdAt: -1 })
@@ -167,7 +174,8 @@ exports.updateLead = async (req, res) => {
       leadAssignedId, 
       leadHistory,
       documentIds, 
-      existingDocs, 
+      existingDocs,
+      leadCreatedById, 
       ...updateData 
     } = req.body;
 

@@ -72,6 +72,10 @@ const LeadSchema = new mongoose.Schema({
  type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee', 
  },
+  leadCreatedById:{
+ type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee', 
+ },
  leadSiteId:{
  type: mongoose.Schema.Types.ObjectId,
     ref: 'Site', 
