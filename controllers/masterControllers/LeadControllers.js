@@ -1,6 +1,7 @@
 const Lead = require('../../models/masterModels/Leads'); // Adjust path
 const Employee = require('../../models/masterModels/Employee'); // Adjust path
 const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
+const Visitor = require('../../models/masterModels/Visitor'); // Adjust path
 const path = require('path');
 const fs = require('fs'); // For file system operations (e.g., deleting files)
 const { default: mongoose } = require('mongoose');
