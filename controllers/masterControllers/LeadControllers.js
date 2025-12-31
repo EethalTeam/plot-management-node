@@ -57,23 +57,8 @@ const leadDocument = uploadedFiles.map((file, index) => ({
         leadStatusId: leadStatusId 
     };
   console.log(leadPhone,"leadPhone")
-const LeadStatusExists1 = await LeadStatus.findById({leadStatusName:'New'});
-    if (!LeadStatusExists1) {
-      uploadedFiles.forEach(file => fs.unlinkSync(file.path)); 
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid Lead Status ID provided.'
-      });
-    }
-    let leadStatusdefaultId = LeadStatusExists1._id;
-  const LeadSourceExists = await LeadStatus.findById(leadSourceId);
-    if (!LeadSourceExists && leadSourceId) {
-      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
-      return res.status(400).json({ 
-        success: false,
-        message: 'Invalid Lead Source ID provided.' 
-      });
-    }
+
+
   // res.status(201).json({purpose :'testing'})
  let createData={
        leadUnitId,
@@ -101,11 +86,30 @@ const LeadStatusExists1 = await LeadStatus.findById({leadStatusName:'New'});
     if(leadStatusId){
         createData.leadStatusId=leadStatusId
     }else{
-        createData.leadStatusId=leadStatusdefaultId
+      const LeadStatusExists1 = await LeadStatus.findById({leadStatusName:'New'});
+    if (!LeadStatusExists1) {
+      uploadedFiles.forEach(file => fs.unlinkSync(file.path)); 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Lead Status ID provided.'
+      });
+    }
+   
+        createData.leadStatusId=LeadStatusExists1._id;
+        
     }
     if(leadSourceId){
+      
         createData.leadSourceId=leadSourceId
     }else{
+        const LeadSourceExists = await LeadStatus.findOne({leadSourceName:'Referral'});
+    if (!LeadSourceExists && leadSourceId) {
+      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid Lead Source ID provided.' 
+      });
+    }
         createData.leadSourceId=LeadSourceExists._id
     }
     const newLead = new Lead(createData);
