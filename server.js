@@ -6,15 +6,18 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const fs = require('fs'); 
-
+const multer = require('multer')
 const masterRoutes = require('./routes/masterRoutes');
 const mainRoutes = require('./routes/mainRoutes');
 const Notification = require('./models/masterModels/Notifications');
 const CallLogController=require('./controllers/masterControllers/callLogControllers')
+const LeadController = require('./controllers/masterControllers/LeadControllers')
+const upload = multer({ dest: 'uploads/' });
 
 const app = express();
 const PORT = 8001;
 
+app.post('/api/importLeadsExcel', upload.single('file'), LeadController.importLeads);
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cors({

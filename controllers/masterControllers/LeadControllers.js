@@ -1,4 +1,5 @@
 const Lead = require('../../models/masterModels/Leads'); // Adjust path
+const XLSX = require("xlsx");
 const Employee = require('../../models/masterModels/Employee'); // Adjust path
 const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
 const Visitor = require('../../models/masterModels/Visitor'); // Adjust path
@@ -472,6 +473,103 @@ exports.addLeadDocument = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 };
+
+
+
+
+
+exports.importLeads = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: "Excel is empty" });
+    }
+
+    const leadsToInsert = [];
+    const skipped = [];
+
+    for (const row of rows) {
+      const name = row["Name"]?.trim();
+      const phone = row["Phone"]?.toString().trim();
+      const siteName = row["Site"]?.trim();
+      const statusName = row["Status"]?.trim();
+      const agentName = row["Assigned To"]?.trim();
+
+      if (!name || !phone) continue;
+
+      //  Duplicate check
+      const exists = await Lead.findOne({ leadPhone: phone });
+      if (exists) {
+        skipped.push(phone);
+        continue;
+      }
+
+      //  Site lookup
+      const site = siteName
+        ? await mongoose.model("Site").findOne({ sitename: siteName })
+        : null;
+
+      //  Status lookup
+      const status = statusName
+        ? await LeadStatus.findOne({ leadStatustName: statusName })
+        : null;
+
+      //  Employee lookup
+      const employee = agentName
+        ? await Employee.findOne({ EmployeeName: agentName })
+        : null;
+
+      leadsToInsert.push({
+        leadFirstName: name,
+        leadPhone: phone,
+        leadSiteId: site?._id || null,
+        leadStatusId: status?._id || null,
+        leadAssignedId: employee?._id || null,
+        leadHistory: [
+          {
+            eventType: "Lead Imported",
+            details: "Imported via Excel",
+            leadStatusId: status?._id || null,
+            timestamp: new Date()
+          }
+        ]
+      });
+    }
+
+    if (!leadsToInsert.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid leads",
+        skipped
+      });
+    }
+
+    await Lead.insertMany(leadsToInsert);
+
+    res.status(200).json({
+      success: true,
+      message: `${leadsToInsert.length} leads imported`,
+      skipped
+    });
+
+  } catch (err) {
+    console.error("IMPORT ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Excel import failed",
+      error: err.message
+    });
+  }
+};
+
+
 
 // --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
 // exports.addLeadNote = async (req, res) => {
