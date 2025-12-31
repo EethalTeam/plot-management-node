@@ -5,6 +5,7 @@ const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust pa
 const path = require('path');
 const fs = require('fs'); // For file system operations (e.g., deleting files)
 const { default: mongoose } = require('mongoose');
+const e = require('cors');
 
 const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents'); 
 
@@ -48,17 +49,58 @@ const leadDocument = uploadedFiles.map((file, index) => ({
         leadStatusId: leadStatusId 
     };
   console.log(leadPhone,"leadPhone")
-
+const LeadStatusExists1 = await LeadStatus.findById({leadStatusName:'New'});
+    if (!LeadStatusExists1) {
+      uploadedFiles.forEach(file => fs.unlinkSync(file.path)); 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Lead Status ID provided.'
+      });
+    }
+    let leadStatusdefaultId = LeadStatusExists1._id;
+  const LeadSourceExists = await LeadStatus.findById(leadSourceId);
+    if (!LeadSourceExists && leadSourceId) {
+      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid Lead Source ID provided.' 
+      });
+    }
   // res.status(201).json({purpose :'testing'})
-
-    const newLead = new Lead({
-    leadUnitId, leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
-      leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,leadAltPhone,
-      leadStatusId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,leadNotes,
-      leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
-      leadDocument,
-      leadHistory: [initialHistory]
-    });
+ let createData={
+       leadUnitId,
+       leadCreatedById,
+       leadFirstName,
+       leadLastName,
+       leadEmail,
+       leadPhone,
+       leadJobTitle,
+       leadLinkedIn,
+       leadAddress,
+       leadCityId,
+       leadStateId,
+       leadCountryId,
+       leadZipCode,
+       leadAltPhone,
+       leadPotentialValue,
+       leadScore,
+       leadSiteId,
+       leadNotes,
+       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
+       leadDocument,
+       leadHistory: [initialHistory]
+    }
+    if(leadStatusId){
+        createData.leadStatusId=leadStatusId
+    }else{
+        createData.leadStatusId=leadStatusdefaultId
+    }
+    if(leadSourceId){
+        createData.leadSourceId=leadSourceId
+    }else{
+        createData.leadSourceId=LeadSourceExists._id
+    }
+    const newLead = new Lead(createData);
 
     const savedLead = await newLead.save();
 
@@ -174,8 +216,6 @@ exports.updateLead = async (req, res) => {
   const uploadedFiles = req.files || [];
 
   try {
-    // 1. Destructure fields
-    // existingDocs: This should be the stringified array of current documents from the frontend
     const { 
       leadId, 
       employeeName, 
@@ -198,57 +238,71 @@ exports.updateLead = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
-    // 2. Prepare Base Update Object
     const updatedData = { ...updateData };
-    if (updateData.leadAssignedId) updatedData.leadAssignedId = updateData.leadAssignedId;
-
-    // 3. HANDLE DOCUMENTS (REPLACEMENT LOGIC)
+    
     let finalDocuments = [];
-
-    // Part A: Keep existing documents that weren't replaced/deleted
     if (existingDocs) {
-      // FormData sends objects as strings, so we must parse it
       try {
         const retainedDocs = JSON.parse(existingDocs);
         finalDocuments = Array.isArray(retainedDocs) ? retainedDocs : [retainedDocs];
-      } catch (e) {
-        console.error("Error parsing existingDocs:", e);
-      }
+      } catch (e) { console.error("Error parsing existingDocs:", e); }
     }
 
-    // Part B: Add newly uploaded files
     if (uploadedFiles.length > 0) {
-      const newDocuments = uploadedFiles.map((file, index) => {
-        let docId = Array.isArray(documentIds) ? documentIds[index] : documentIds;
-        return {
-          documentId: docId || null,
-          fileName: file.originalname,
-          fileUrl: file.path.replace(DOC_BASE_PATH, ''),
-          uploadDate: new Date()
-        };
-      });
+      const newDocuments = uploadedFiles.map((file, index) => ({
+        documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds || null,
+        fileName: file.originalname,
+        fileUrl: file.path,
+        uploadDate: new Date()
+      }));
       finalDocuments = [...finalDocuments, ...newDocuments];
     }
-
-    // Assign the combined array to replace the old one
     updatedData.leadDocument = finalDocuments;
 
     const updateQuery = { $set: updatedData };
 
-    // 4. Handle History
     if (updatedData.leadStatusId && updatedData.leadStatusId.toString() !== oldLead.leadStatusId?.toString()) {
+      
       updateQuery.$push = {
         leadHistory: {
           eventType: 'Status Change',
-          details: `Status updated from ${oldLead.leadStatusId} to ${updatedData.leadStatusId}`,
+          details: `Status updated to ${updatedData.leadStatusId}`,
           employeeName: employeeName,
           leadStatusId: updatedData.leadStatusId,
           timestamp: new Date()
         }
       };
+
+      const targetStatus = await LeadStatus.findById(updatedData.leadStatusId);
+      
+      if (targetStatus && targetStatus.leadStatustName === "Site Visit") {
+        
+        const latestVisitor = await Visitor.findOne({}).sort({ visitorCode: -1 }).select("visitorCode");
+        let newCode = "VIS00001";
+        if (latestVisitor && latestVisitor.visitorCode) {
+          const lastCode = latestVisitor.visitorCode;
+          const numberPart = parseInt(lastCode.replace("VIS", ""));
+          newCode = "VIS" + (numberPart + 1).toString().padStart(5, "0");
+        }
+
+        // B. Create Visitor using Lead Data
+        const newVisitor = new Visitor({
+          visitorCode: newCode,
+          visitorName: `${oldLead.leadFirstName} ${oldLead.leadLastName}`.trim(),
+          visitorEmail: oldLead.leadEmail,
+          visitorMobile: oldLead.leadPhone, // Mapping leadPhone to visitorMobile
+          visitorWhatsApp: oldLead.leadPhone || "", 
+          cityId: oldLead.leadCityId,
+          visitorAddress: oldLead.leadAddress,
+          employeeId: oldLead.leadCreatedById || oldLead.leadAssignedId, // Assigning same employee
+          description: `Converted from Lead. Original Notes: ${oldLead.leadNotes || ""}`,
+          isActive: true
+        });
+
+        await newVisitor.save();
+      }
     }
 
-    // 5. Execute replacement update
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
       updateQuery,
@@ -257,15 +311,13 @@ exports.updateLead = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Lead updated successfully (Documents replaced)',
+      message: 'Lead updated and Visitor created if Status was Site Visit',
       data: updatedLead
     });
 
   } catch (error) {
     console.error("Update Lead Error:", error);
-    uploadedFiles.forEach(file => {
-      try { fs.unlinkSync(file.path); } catch (e) {}
-    });
+    uploadedFiles.forEach(file => { try { fs.unlinkSync(file.path); } catch (e) {} });
     res.status(500).json({ success: false, message: error.message });
   }
 };
