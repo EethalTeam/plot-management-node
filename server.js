@@ -34,7 +34,7 @@ app.use((req, res, next) => {
     next();
 });
 const leadDocsPath = path.resolve(__dirname, 'lead_documents');
-app.use('/api/lead_documents', express.static(leadDocsPath));
+app.use('/api/lead_documents', express.static(path.join(__dirname, 'lead_documents')));
 app.get('/api/calls/fetch-all', CallLogController.fetchAllCallLogs);
 app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.use('/api', masterRoutes);

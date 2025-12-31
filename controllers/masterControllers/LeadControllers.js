@@ -30,11 +30,18 @@ exports.createLead = async (req, res) => {
     }
     console.log(existingLead,"existingLead")
 
+// const leadDocument = uploadedFiles.map((file, index) => ({
+//       documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds,
+//       fileName: file.originalname,
+//       fileUrl: file.path.replace(DOC_BASE_PATH, ''),
+//     }));
+// Before: fileUrl: file.path.replace(DOC_BASE_PATH, ''),
+// After:
 const leadDocument = uploadedFiles.map((file, index) => ({
-      documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds,
-      fileName: file.originalname,
-      fileUrl: file.path.replace(DOC_BASE_PATH, ''),
-    }));
+    documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds,
+    fileName: file.originalname,
+    fileUrl: file.filename, 
+}));
     const LeadStatusExists = await LeadStatus.findById(leadStatusId);
     if (!LeadStatusExists) {
       uploadedFiles.forEach(file => fs.unlinkSync(file.path));
@@ -249,15 +256,15 @@ exports.updateLead = async (req, res) => {
       } catch (e) { console.error("Error parsing existingDocs:", e); }
     }
 
-    if (uploadedFiles.length > 0) {
-      const newDocuments = uploadedFiles.map((file, index) => ({
+if (uploadedFiles.length > 0) {
+    const newDocuments = uploadedFiles.map((file, index) => ({
         documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds || null,
         fileName: file.originalname,
-        fileUrl: file.path,
+        fileUrl: file.filename, 
         uploadDate: new Date()
-      }));
-      finalDocuments = [...finalDocuments, ...newDocuments];
-    }
+    }));
+    finalDocuments = [...finalDocuments, ...newDocuments];
+}
     updatedData.leadDocument = finalDocuments;
 
     const updateQuery = { $set: updatedData };
