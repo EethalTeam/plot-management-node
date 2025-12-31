@@ -4,6 +4,7 @@ const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust pa
 const path = require('path');
 const fs = require('fs'); // For file system operations (e.g., deleting files)
 const { default: mongoose } = require('mongoose');
+const e = require('cors');
 
 const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents'); 
 
@@ -56,16 +57,49 @@ const LeadStatusExists1 = await LeadStatus.findById({leadStatusName:'New'});
       });
     }
     let leadStatusdefaultId = LeadStatusExists1._id;
+  const LeadSourceExists = await LeadStatus.findById(leadSourceId);
+    if (!LeadSourceExists && leadSourceId) {
+      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid Lead Source ID provided.' 
+      });
+    }
   // res.status(201).json({purpose :'testing'})
-
-    const newLead = new Lead({
-    leadUnitId, leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
-      leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode,leadAltPhone,
-      leadStatusId: leadStatusId || leadStatusdefaultId, leadSourceId, leadPotentialValue, leadScore,leadSiteId,leadNotes,
-      leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
-      leadDocument,
-      leadHistory: [initialHistory]
-    });
+ let createData={
+       leadUnitId,
+       leadCreatedById,
+       leadFirstName,
+       leadLastName,
+       leadEmail,
+       leadPhone,
+       leadJobTitle,
+       leadLinkedIn,
+       leadAddress,
+       leadCityId,
+       leadStateId,
+       leadCountryId,
+       leadZipCode,
+       leadAltPhone,
+       leadPotentialValue,
+       leadScore,
+       leadSiteId,
+       leadNotes,
+       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
+       leadDocument,
+       leadHistory: [initialHistory]
+    }
+    if(leadStatusId){
+        createData.leadStatusId=leadStatusId
+    }else{
+        createData.leadStatusId=leadStatusdefaultId
+    }
+    if(leadSourceId){
+        createData.leadSourceId=leadSourceId
+    }else{
+        createData.leadSourceId=LeadSourceExists._id
+    }
+    const newLead = new Lead(createData);
 
     const savedLead = await newLead.save();
 
@@ -240,7 +274,7 @@ exports.updateLead = async (req, res) => {
 
       const targetStatus = await LeadStatus.findById(updatedData.leadStatusId);
       
-      if (targetStatus && targetStatus.statusName === "Site Visit") {
+      if (targetStatus && targetStatus.leadStatustName === "Site Visit") {
         
         const latestVisitor = await Visitor.findOne({}).sort({ visitorCode: -1 }).select("visitorCode");
         let newCode = "VIS00001";
