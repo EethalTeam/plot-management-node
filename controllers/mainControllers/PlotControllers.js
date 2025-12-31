@@ -118,7 +118,7 @@ exports.updatePlot = async (req, res) => {
   try {
     const { _id,siteId, unitId, plotNumber,areaInSqFt,cents,SquareFeet,description,dimension,facing,landmark,remarks,road } = req.body;
 let updateData={siteId, plotNumber,areaInSqFt,cents,SquareFeet,description,dimension,facing,landmark,remarks,road}
-if(!unitId){
+if(unitId){
   updateData.unitId=unitId
 }
     const updatedPlot = await Plot.findByIdAndUpdate(_id, updateData, {
