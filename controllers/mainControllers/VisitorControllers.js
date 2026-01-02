@@ -17,6 +17,10 @@ const STATUS_IDS = {
 exports.createVisitor = async (req, res) => {
   try {
     const {visitorName,visitorEmail,visitorMobile,visitorWhatsApp,visitorPhone,cityId,visitorAddress,feedback,description,employeeId,statusId,followUpDate, followUpDescription, followUpStatus, notes, remarks, followedUpById} = req.body
+    const ExistingVisitor = await Visitor.findOne({ visitorMobile: visitorMobile, isActive: true });
+    if (ExistingVisitor) {
+      return res.status(400).json({ success: false, message: "Visitor with this mobile number already exists." });
+    }
     const latestVisitor = await Visitor.findOne({})
           .sort({ visitorCode: -1 })
           .select("visitorCode");

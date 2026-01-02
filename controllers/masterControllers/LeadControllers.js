@@ -28,7 +28,6 @@ exports.createLead = async (req, res) => {
       });
       
     }
-    console.log(existingLead,"existingLead")
 
 // const leadDocument = uploadedFiles.map((file, index) => ({
 //       documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds,
@@ -56,7 +55,6 @@ const leadDocument = uploadedFiles.map((file, index) => ({
         details: `Initial lead creation with status: ${LeadStatusExists.leadStatustName}`,
         leadStatusId: leadStatusId 
     };
-  console.log(leadPhone,"leadPhone")
 
 
   // res.status(201).json({purpose :'testing'})
@@ -229,68 +227,69 @@ exports.updateLead = async (req, res) => {
   const uploadedFiles = req.files || [];
 
   try {
-    const { 
-      leadId, 
-      employeeName, 
-      leadAssignedId, 
+    const {
+      leadId,
+      employeeName,
+      leadAssignedId,
       leadHistory,
-      documentIds, 
+      documentIds,
       existingDocs,
-      leadCreatedById, 
-      ...updateData 
+      leadCreatedById,
+      ...updateData
     } = req.body;
 
     if (!leadId) {
-      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
-      return res.status(400).json({ success: false, message: 'Lead ID is required' });
+      uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
+      return res.status(400).json({ success: false, message: "Lead ID is required" });
     }
 
     const oldLead = await Lead.findById(leadId);
     if (!oldLead) {
-      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
-      return res.status(404).json({ success: false, message: 'Lead not found' });
+      uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
+      return res.status(404).json({ success: false, message: "Lead not found" });
     }
 
     const updatedData = { ...updateData };
-    
     let finalDocuments = [];
+    
     if (existingDocs) {
       try {
         const retainedDocs = JSON.parse(existingDocs);
         finalDocuments = Array.isArray(retainedDocs) ? retainedDocs : [retainedDocs];
-      } catch (e) { console.error("Error parsing existingDocs:", e); }
+      } catch (e) {
+        console.error("Error parsing existingDocs:", e);
+      }
     }
 
-if (uploadedFiles.length > 0) {
-    const newDocuments = uploadedFiles.map((file, index) => ({
+    if (uploadedFiles.length > 0) {
+      const newDocuments = uploadedFiles.map((file, index) => ({
         documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds || null,
         fileName: file.originalname,
-        fileUrl: file.filename, 
-        uploadDate: new Date()
-    }));
-    finalDocuments = [...finalDocuments, ...newDocuments];
-}
+        fileUrl: file.filename,
+        uploadDate: new Date(),
+      }));
+      finalDocuments = [...finalDocuments, ...newDocuments];
+    }
     updatedData.leadDocument = finalDocuments;
 
-    const updateQuery = { $set: updatedData };
-
+    let historyEntries = [];
+    const oldLeadStatusName = oldLead.leadStatusId ? (await LeadStatus.findById(oldLead.leadStatusId)).leadStatustName : "N/A";
+    const newLeadStatusName = updatedData.leadStatusId ? (await LeadStatus.findById(updatedData.leadStatusId)).leadStatustName : oldLeadStatusName;
     if (updatedData.leadStatusId && updatedData.leadStatusId.toString() !== oldLead.leadStatusId?.toString()) {
-      
-      updateQuery.$push = {
-        leadHistory: {
-          eventType: 'Status Change',
-          details: `Status updated to ${updatedData.leadStatusId}`,
-          employeeName: employeeName,
-          leadStatusId: updatedData.leadStatusId,
-          timestamp: new Date()
-        }
-      };
+      historyEntries.push({
+        eventType: "Status Change",
+        details: `Status updated from ${oldLeadStatusName} to ${newLeadStatusName} by ${employeeName}`,
+        employeeName: employeeName,
+        leadStatusId: updatedData.leadStatusId,
+        timestamp: new Date(),
+      });
 
       const targetStatus = await LeadStatus.findById(updatedData.leadStatusId);
-      
       if (targetStatus && targetStatus.leadStatustName === "Site Visit") {
-        
+        const ExistingVisitor = await Visitor.findOne({ visitorMobile: oldLead.leadPhone, isActive: true });
+        if (!ExistingVisitor) {
         const latestVisitor = await Visitor.findOne({}).sort({ visitorCode: -1 }).select("visitorCode");
+        
         let newCode = "VIS00001";
         if (latestVisitor && latestVisitor.visitorCode) {
           const lastCode = latestVisitor.visitorCode;
@@ -298,39 +297,75 @@ if (uploadedFiles.length > 0) {
           newCode = "VIS" + (numberPart + 1).toString().padStart(5, "0");
         }
 
-        // B. Create Visitor using Lead Data
         const newVisitor = new Visitor({
           visitorCode: newCode,
           visitorName: `${oldLead.leadFirstName} ${oldLead.leadLastName}`.trim(),
           visitorEmail: oldLead.leadEmail,
-          visitorMobile: oldLead.leadPhone, // Mapping leadPhone to visitorMobile
-          visitorWhatsApp: oldLead.leadPhone || "", 
+          visitorMobile: oldLead.leadPhone,
+          visitorWhatsApp: oldLead.leadPhone || "",
           cityId: oldLead.leadCityId,
           visitorAddress: oldLead.leadAddress,
-          employeeId: oldLead.leadCreatedById || oldLead.leadAssignedId, // Assigning same employee
+          employeeId: oldLead.leadCreatedById || oldLead.leadAssignedId,
           description: `Converted from Lead. Original Notes: ${oldLead.leadNotes || ""}`,
-          isActive: true
+          isActive: true,
         });
 
         await newVisitor.save();
       }
+      }
     }
 
-    const updatedLead = await Lead.findByIdAndUpdate(
-      leadId,
-      updateQuery,
-      { new: true, runValidators: true }
-    );
+    if (updatedData.leadScore && updatedData.leadScore !== oldLead.leadScore) {
+      historyEntries.push({
+        eventType: "Score Update",
+        details: `Score updated from ${oldLead.leadScore || "N/A"} to ${updatedData.leadScore} by ${employeeName}`,
+        employeeName: employeeName,
+        timestamp: new Date(),
+      });
+    }
+
+    if (updatedData.leadNotes && updatedData.leadNotes !== oldLead.leadNotes) {
+      historyEntries.push({
+        eventType: "Note Update",
+        details: `Note updated: ${updatedData.leadNotes} by ${employeeName}`,
+        employeeName: employeeName,
+        timestamp: new Date(),
+      });
+    }
+
+    if (uploadedFiles.length > 0) {
+      historyEntries.push({
+        eventType: "Document Upload",
+        details: `${uploadedFiles.length} new document(s) uploaded by ${employeeName}`,
+        employeeName: employeeName,
+        timestamp: new Date(),
+      });
+    }
+
+    const updateQuery = { $set: updatedData };
+
+    if (historyEntries.length > 0) {
+      updateQuery.$push = {
+        leadHistory: { $each: historyEntries },
+      };
+    }
+
+    const updatedLead = await Lead.findByIdAndUpdate(leadId, updateQuery, {
+      new: true,
+      runValidators: true,
+    });
 
     res.status(200).json({
       success: true,
-      message: 'Lead updated and Visitor created if Status was Site Visit',
-      data: updatedLead
+      message: "Lead updated successfully",
+      data: updatedLead,
     });
 
   } catch (error) {
     console.error("Update Lead Error:", error);
-    uploadedFiles.forEach(file => { try { fs.unlinkSync(file.path); } catch (e) {} });
+    uploadedFiles.forEach((file) => {
+      try { fs.unlinkSync(file.path); } catch (e) {}
+    });
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -719,18 +754,15 @@ exports.importLeads = async (req, res) => {
         row["city"] ||
         row["City"] ||
         "";
-
       const cleanCity = cityRaw
         ? cityRaw.toString().split(",")[0].trim()
         : "";
-
       const city = cleanCity
         ? await mongoose.model("City").findOne({
             CityName: new RegExp(`^${cleanCity}$`, "i")
           })
         : null;
 
-     
       const descriptionParts = [];
 
       if (row["what_is_your_preferred_plot_size?"]) {
@@ -835,41 +867,41 @@ exports.importLeads = async (req, res) => {
 
 
 // --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
-// exports.addLeadNote = async (req, res) => {
-//     try {
-//       const { leadId, details, employeeName, leadStatusId } = req.body; // Capture current status if applicable
+exports.addLeadNote = async (req, res) => {
+    try {
+      const { leadId, details, employeeName, leadStatusId } = req.body; // Capture current status if applicable
   
-//       if (!leadId || !details) {
-//         return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
-//       }
+      if (!leadId || !details) {
+        return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
+      }
 
-//       // Check lead status if not provided, for history logging
-//       const lead = await Lead.findById(leadId, 'leadStatusId');
-//       if (!lead) {
-//           return res.status(404).json({ success: false, message: 'Lead not found' });
-//       }
+      // Check lead status if not provided, for history logging
+      const lead = await Lead.findById(leadId, 'leadStatusId');
+      if (!lead) {
+          return res.status(404).json({ success: false, message: 'Lead not found' });
+      }
       
-//       const newHistoryEntry = { 
-//           eventType: 'Note Added', 
-//           details: details, 
-//           employeeName: employeeName, // User making the note
-//           leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
-//       };
+      const newHistoryEntry = { 
+          eventType: 'Note Added', 
+          details: `Note updated: ${details} by ${employeeName}`,
+          employeeName: employeeName, // User making the note
+          leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
+      };
   
-//       const updatedLead = await Lead.findByIdAndUpdate(
-//         leadId,
-//         { $push: { leadHistory: newHistoryEntry } },
-//         { new: true }
-//       );
+      const updatedLead = await Lead.findByIdAndUpdate(
+        leadId,
+        { $set: { leadNotes: details }, $push: { leadHistory: newHistoryEntry } },
+        { new: true }
+      );
   
-//       res.status(200).json({
-//         success: true,
-//         message: 'Note added to lead history',
-//         data: updatedLead.leadHistory.slice(-1)[0] // Return the latest history entry
-//       });
+      res.status(200).json({
+        success: true,
+        message: 'Note added to lead history',
+        data: updatedLead.leadHistory.slice(-1)[0] // Return the latest history entry
+      });
   
-//     } catch (error) {
-//       console.error("Add Lead Note Error:", error);
-//       res.status(500).json({ success: false, message: error.message });
-//     }
-// };
+    } catch (error) {
+      console.error("Add Lead Note Error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+};

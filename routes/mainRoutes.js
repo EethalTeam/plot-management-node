@@ -73,7 +73,7 @@ router.post('/Lead/updateLead',upload.array('leadFiles', 5), LeadControllers.upd
 router.post('/Lead/assignLead', LeadControllers.assignLead);
 router.post('/Lead/deleteLeads', LeadControllers.deleteLead);
 router.post('/Lead/getLeadById', LeadControllers.getLeadById);
-// router.post('/Lead/addLeadNote', LeadControllers.addLeadNote);
+router.post('/Lead/addLeadNote', LeadControllers.addLeadNote);
 router.post('/Lead/addLeadDocument',upload.single('leadFile'),LeadControllers.addLeadDocument);
 
 module.exports = router;

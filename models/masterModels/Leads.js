@@ -11,6 +11,12 @@ const LeadSchema = new mongoose.Schema({
     
     trim: true,
   },
+  SiteVisitDate: {
+    type: Date,
+  },
+  FollowDate: {
+    type: Date,
+  },
   leadEmail: {
     type: String,
     lowercase: true,
