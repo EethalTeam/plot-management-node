@@ -13,8 +13,6 @@ const LeadSchema = new mongoose.Schema({
   },
   leadEmail: {
     type: String,
-    
-    unique: true,
     lowercase: true,
     trim: true,
   },
@@ -23,6 +21,10 @@ const LeadSchema = new mongoose.Schema({
     trim: true,
   },
     leadAltPhone: {
+    type: String,
+    trim: true,
+  },
+     leadDescription: {
     type: String,
     trim: true,
   },

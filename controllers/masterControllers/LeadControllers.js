@@ -13,7 +13,7 @@ const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
 exports.createLead = async (req, res) => {
   const { 
   leadUnitId, leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
-    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,
+    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,leadDescription,
     leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId, documentIds,leadAltPhone
   } = req.body;
   
@@ -67,6 +67,7 @@ const leadDocument = uploadedFiles.map((file, index) => ({
        leadLastName,
        leadEmail,
        leadPhone,
+       leadDescription,
        leadJobTitle,
        leadLinkedIn,
        leadAddress,
@@ -489,10 +490,170 @@ exports.addLeadDocument = async (req, res) => {
 
 
 
+//  exports.importLeads = async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "No file uploaded"
+//       });
+//     }
+
+//     const workbook = XLSX.readFile(req.file.path);
+//     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+//     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+//     if (!rows.length) {
+//       fs.unlinkSync(req.file.path);
+//       return res.status(400).json({
+//         success: false,
+//         message: "Excel is empty"
+//       });
+//     }
+
+//     const leadsToInsert = [];
+//     const skipped = [];
+
+//     // 🔹 Fetch existing phones once (performance)
+//     const existingPhones = new Set(
+//       (await Lead.find({}, "leadPhone")).map(l => l.leadPhone)
+//     );
+
+//     for (const row of rows) {
+//       const name =
+//         row["full_name"] ||
+//         row["Full Name"] ||
+//         row["name"] ||
+//         "";
+
+//       let phone = row["Phone"]?.toString().replace(/\D/g, "");
+
+//       if (!name || !phone) continue;
+
+//       // Normalize phone (91 + 10 digits)
+//       if (phone.length === 10) phone = "91" + phone;
+//       if (phone.length !== 12) {
+//         skipped.push(phone);
+//         continue;
+//       }
+
+//       // Duplicate check
+//       if (existingPhones.has(phone)) {
+//         skipped.push(phone);
+//         continue;
+//       }
+
+//       // Lookups
+
+// const descriptionParts = [];
+
+// if (row["what_is_your_preferred_plot_size?"]) {
+//   descriptionParts.push(
+//     `Preferred Plot Size: ${row["what_is_your_preferred_plot_size?"]}`
+//   );
+// }
+
+// if (row["are_you_planning_to_build_soon?"]) {
+//   descriptionParts.push(
+//     `Planning to Build: ${row["are_you_planning_to_build_soon?"]}`
+//   );
+// }
+
+// if (row["would_you_like_a_site_visit?"]) {
+//   descriptionParts.push(
+//     `Site Visit: ${row["would_you_like_a_site_visit?"]}`
+//   );
+// }
+
+// const leadDescription = descriptionParts.join("\n");
+
+// const leadNotes = row["Status"]?.trim() || "";
+
+//       const site = row["Site"]
+//         ? await mongoose.model("Site").findOne({ sitename: row["Site"].trim() })
+//         : null;
+
+//       const status = row["Status"]
+//         ? await LeadStatus.findOne({ leadStatustName: row["Status"].trim() })
+//         : null;
+
+//       const employee = row["Assigned To"]
+//         ? await Employee.findOne({ EmployeeName: row["Assigned To"].trim() })
+//         : null;
+       
+//         const city = row["city"]
+//   ? await mongoose.model("City").findOne({
+//       CityName: new RegExp(`^${row["city"].trim()}$`, "i")
+//     })
+//   : null;
+
+        
+
+//       leadsToInsert.push({
+//         leadFirstName: name.trim(),
+//         leadPhone: phone,
+//         leadEmail: row["email"]?.trim() || "",
+//         leadSiteId: site?._id || null,
+//         leadStatusId: status?._id || null,
+//         leadAssignedId: employee?._id || null,
+//         leadCityId: city?._id || null,
+//         leadDescription,
+//         leadNotes,
+//         leadHistory: [
+//           {
+//             eventType: "Lead Imported",
+//             details: "Imported via Excel",
+//             leadStatusId: status?._id || null,
+//             timestamp: new Date()
+//           }
+//         ]
+//       });
+
+//       existingPhones.add(phone); // prevent duplicates in same file
+//     }
+
+//     // Delete uploaded file
+//     fs.unlinkSync(req.file.path);
+
+//     if (!leadsToInsert.length) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "No valid leads found",
+//         skipped
+//       });
+//     }
+
+//     await Lead.insertMany(leadsToInsert);
+
+//     res.status(200).json({
+//       success: true,
+//       message: `${leadsToInsert.length} leads imported successfully`,
+//       skipped
+//     });
+
+//   } catch (error) {
+//     console.error("IMPORT ERROR:", error);
+
+//     if (req.file && fs.existsSync(req.file.path)) {
+//       fs.unlinkSync(req.file.path);
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       message: "Excel import failed",
+//       error: error.message
+//     });
+//   }
+// };
+
+
 exports.importLeads = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded"
+      });
     }
 
     const workbook = XLSX.readFile(req.file.path);
@@ -500,49 +661,130 @@ exports.importLeads = async (req, res) => {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
     if (!rows.length) {
-      return res.status(400).json({ success: false, message: "Excel is empty" });
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: "Excel is empty"
+      });
     }
 
     const leadsToInsert = [];
     const skipped = [];
 
+    // 🔹 Get existing phones once
+    const existingPhones = new Set(
+      (await Lead.find({}, "leadPhone")).map(l => l.leadPhone)
+    );
+
     for (const row of rows) {
-      const name = row["Name"]?.trim();
-      const phone = row["Phone"]?.toString().trim();
-      const siteName = row["Site"]?.trim();
-      const statusName = row["Status"]?.trim();
-      const agentName = row["Assigned To"]?.trim();
+
+   
+      const name =
+        row["full_name"] ||
+        row["Full Name"] ||
+        row["name"] ||
+        "";
+
+   
+      const phoneRaw =
+        row["phone_number"] ||
+        row["Phone"] ||
+        row["Mobile"] ||
+        "";
+
+      let phone = phoneRaw.toString().replace(/\D/g, "");
 
       if (!name || !phone) continue;
 
-      //  Duplicate check
-      const exists = await Lead.findOne({ leadPhone: phone });
-      if (exists) {
+      // Normalize phone (91 + 10 digits)
+      if (phone.length === 10) phone = "91" + phone;
+      if (phone.length !== 12) {
         skipped.push(phone);
         continue;
       }
 
-      //  Site lookup
-      const site = siteName
-        ? await mongoose.model("Site").findOne({ sitename: siteName })
+      // Duplicate check
+      if (existingPhones.has(phone)) {
+        skipped.push(phone);
+        continue;
+      }
+
+    
+      const email =
+        row["email"] ||
+        row["Email"] ||
+        "";
+
+      const cityRaw =
+        row["city"] ||
+        row["City"] ||
+        "";
+
+      const cleanCity = cityRaw
+        ? cityRaw.toString().split(",")[0].trim()
+        : "";
+
+      const city = cleanCity
+        ? await mongoose.model("City").findOne({
+            CityName: new RegExp(`^${cleanCity}$`, "i")
+          })
         : null;
 
-      //  Status lookup
-      const status = statusName
-        ? await LeadStatus.findOne({ leadStatustName: statusName })
+     
+      const descriptionParts = [];
+
+      if (row["what_is_your_preferred_plot_size?"]) {
+        descriptionParts.push(
+          `Preferred Plot Size: ${row["what_is_your_preferred_plot_size?"]}`
+        );
+      }
+
+      if (row["are_you_planning_to_build_soon?"]) {
+        descriptionParts.push(
+          `Planning to Build: ${row["are_you_planning_to_build_soon?"]}`
+        );
+      }
+
+      if (row["would_you_like_a_site_visit?"]) {
+        descriptionParts.push(
+          `Site Visit: ${row["would_you_like_a_site_visit?"]}`
+        );
+      }
+
+      const leadDescription = descriptionParts.join("\n");
+
+   
+      const leadNotes = row["Status"]?.trim() || "";
+
+  
+      const status = row["Status"]
+        ? await LeadStatus.findOne({
+            leadStatustName: new RegExp(`^${row["Status"].trim()}$`, "i")
+          })
         : null;
 
-      //  Employee lookup
-      const employee = agentName
-        ? await Employee.findOne({ EmployeeName: agentName })
+   
+     const site = row["Site"]
+      ? await mongoose.model("Site").findOne({ sitename: row["Site"].trim() })
+       : null;
+
+      const employee = row["Assigned To"]
+        ? await Employee.findOne({
+            EmployeeName: new RegExp(`^${row["Assigned To"].trim()}$`, "i")
+          })
         : null;
 
+    
       leadsToInsert.push({
-        leadFirstName: name,
+        leadFirstName: name.trim(),
         leadPhone: phone,
-        leadSiteId: site?._id || null,
+        leadEmail: email.trim(),
+        leadCityId: city?._id || null,
+         leadSiteId: site?._id || null,
         leadStatusId: status?._id || null,
         leadAssignedId: employee?._id || null,
+        leadDescription,
+        leadNotes,
         leadHistory: [
           {
             eventType: "Lead Imported",
@@ -552,12 +794,17 @@ exports.importLeads = async (req, res) => {
           }
         ]
       });
+
+      existingPhones.add(phone);
     }
+
+    // Delete uploaded file
+    fs.unlinkSync(req.file.path);
 
     if (!leadsToInsert.length) {
       return res.status(400).json({
         success: false,
-        message: "No valid leads",
+        message: "No valid leads found",
         skipped
       });
     }
@@ -566,16 +813,21 @@ exports.importLeads = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `${leadsToInsert.length} leads imported`,
+      message: `${leadsToInsert.length} leads imported successfully`,
       skipped
     });
 
-  } catch (err) {
-    console.error("IMPORT ERROR:", err);
+  } catch (error) {
+    console.error("IMPORT ERROR:", error);
+
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
     res.status(500).json({
       success: false,
       message: "Excel import failed",
-      error: err.message
+      error: error.message
     });
   }
 };
