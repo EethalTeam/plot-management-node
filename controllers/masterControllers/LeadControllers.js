@@ -59,7 +59,6 @@ const leadDocument = uploadedFiles.map((file, index) => ({
 
   // res.status(201).json({purpose :'testing'})
  let createData={
-       leadUnitId,
        leadCreatedById,
        leadFirstName,
        leadLastName,
@@ -83,6 +82,9 @@ const leadDocument = uploadedFiles.map((file, index) => ({
        leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
        leadDocument,
        leadHistory: [initialHistory]
+    }
+    if(leadUnitId){
+        createData.leadUnitId=leadUnitId
     }
     if(leadStatusId){
         createData.leadStatusId=leadStatusId
