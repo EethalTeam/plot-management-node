@@ -162,7 +162,6 @@ exports.getAllLeads = async (req, res) => {
         { 'leadEmail': { $regex: search, $options: 'i' } }
       ];
     }
-console.log(query,"query")
     const [leads, total] = await Promise.all([
       Lead.find(query)
         .sort({ createdAt: -1 })
@@ -345,7 +344,9 @@ exports.updateLead = async (req, res) => {
         timestamp: new Date(),
       });
     }
-
+    if (!updatedData.leadUnitId) {
+  delete updatedData.leadUnitId;
+}
     const updateQuery = { $set: updatedData };
 
     if (historyEntries.length > 0) {
