@@ -1,7 +1,7 @@
 const Visitor = require("../../models/masterModels/Visitor");
-const Plots = require('../../models/masterModels/Plot')
-const Status = require('../../models/masterModels/Status')
-const Employees = require('../../models/masterModels/Employee')
+const Plots = require("../../models/masterModels/Plot");
+const Status = require("../../models/masterModels/Status");
+const Employees = require("../../models/masterModels/Employee");
 const mongoose = require("mongoose");
 
 const STATUS_IDS = {
@@ -11,48 +11,75 @@ const STATUS_IDS = {
   Hold: "68919db26c96e8d502df4716",
   Sold: "68919dc96c96e8d502df471a",
   Interested: "689343a2be2ae7f865e038a1",
-  Visited: "68947ddcbb5588af59c8a1eb"
+  Visited: "68947ddcbb5588af59c8a1eb",
 };
 // Create Visitor
 exports.createVisitor = async (req, res) => {
   try {
-    const {visitorName,visitorEmail,visitorMobile,visitorWhatsApp,visitorPhone,cityId,visitorAddress,feedback,description,employeeId,statusId,followUpDate, followUpDescription, followUpStatus, notes, remarks, followedUpById} = req.body
-    const ExistingVisitor = await Visitor.findOne({ visitorMobile: visitorMobile, isActive: true });
+    const {
+      visitorName,
+      visitorEmail,
+      visitorMobile,
+      visitorWhatsApp,
+      visitorPhone,
+      cityId,
+      visitorAddress,
+      feedback,
+      description,
+      employeeId,
+      statusId,
+      followUpDate,
+      followUpDescription,
+      followUpStatus,
+      notes,
+      remarks,
+      followedUpById,
+    } = req.body;
+    const ExistingVisitor = await Visitor.findOne({
+      visitorMobile: visitorMobile,
+      isActive: true,
+    });
     if (ExistingVisitor) {
-      return res.status(400).json({ success: false, message: "Visitor with this mobile number already exists." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Visitor with this mobile number already exists.",
+        });
     }
     const latestVisitor = await Visitor.findOne({})
-          .sort({ visitorCode: -1 })
-          .select("visitorCode");
-    
-        let newCode = "VIS00001";
-    
-        if (latestVisitor && latestVisitor.visitorCode) {
-          const lastCode = latestVisitor.visitorCode; 
-          const numberPart = parseInt(lastCode.replace("VIS", "")); 
-          const nextNumber = numberPart + 1;
-          newCode = "VIS" + nextNumber.toString().padStart(5, "0"); 
-        }
+      .sort({ visitorCode: -1 })
+      .select("visitorCode");
+
+    let newCode = "VIS00001";
+
+    if (latestVisitor && latestVisitor.visitorCode) {
+      const lastCode = latestVisitor.visitorCode;
+      const numberPart = parseInt(lastCode.replace("VIS", ""));
+      const nextNumber = numberPart + 1;
+      newCode = "VIS" + nextNumber.toString().padStart(5, "0");
+    }
     const visitor = new Visitor({
-      visitorCode:newCode,
-visitorName,
-visitorEmail,
-visitorMobile,
-visitorWhatsApp,
-visitorPhone,
-cityId,
-visitorAddress,
-feedback,
-description,
-employeeId,
-statusId,
-followUps:{
-followUpDate, 
-followUpDescription, 
-followUpStatus, 
-notes, 
-remarks, 
-followedUpById}
+      visitorCode: newCode,
+      visitorName,
+      visitorEmail,
+      visitorMobile,
+      visitorWhatsApp,
+      visitorPhone,
+      cityId,
+      visitorAddress,
+      feedback,
+      description,
+      employeeId,
+      statusId,
+      followUps: {
+        followUpDate,
+        followUpDescription,
+        followUpStatus,
+        notes,
+        remarks,
+        followedUpById,
+      },
     });
     const savedVisitor = await visitor.save();
     res.status(201).json({ success: true, data: savedVisitor });
@@ -64,36 +91,36 @@ followedUpById}
 // Get All Visitors
 exports.getAllVisitors = async (req, res) => {
   try {
-    const {employeeId} = req.body
-    const employee=Employees.findOne({_id:employeeId})
-    const filter ={isActive: true}
-    if(employee.employeeRole === 'agent'){
-         filter.employeeId = employeeId
+    const { employeeId } = req.body;
+    const employee = Employees.findOne({ _id: employeeId });
+    const filter = { isActive: true };
+    if (employee.employeeRole === "agent") {
+      filter.employeeId = employeeId;
     }
     const visitors = await Visitor.find(filter)
       .populate("employeeId", "EmployeeName")
       .populate({
-        path:"cityId",
-        select:"CityCode CityName StateID",
-        populate:{
-          path:"StateID",
-          select:"StateCode StateName"
-        }
+        path: "cityId",
+        select: "CityCode CityName StateID",
+        populate: {
+          path: "StateID",
+          select: "StateCode StateName",
+        },
       })
       .populate({
-    path: "plots.plotId",
-    select: "plotCode plotNumber unitId siteId",
-    populate: {
-      path: "unitId",
-      select: "UnitName"
-    },
-    populate:{
-      path:"siteId",
-      select:"sitename"
-    }
-  })
+        path: "plots.plotId",
+        select: "plotCode plotNumber unitId siteId",
+        populate: {
+          path: "unitId",
+          select: "UnitName",
+        },
+        populate: {
+          path: "siteId",
+          select: "sitename",
+        },
+      })
       .populate("plots.statusId", "statusName colorCode")
-      .populate("followUps.followedUpById", "EmployeeName")
+      .populate("followUps.followedUpById", "EmployeeName");
     res.status(200).json({ success: true, data: visitors });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -111,7 +138,9 @@ exports.getVisitorById = async (req, res) => {
       .populate("followUps.followedUpById", "EmployeeName");
 
     if (!visitor) {
-      return res.status(404).json({ success: false, message: "Visitor not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Visitor not found" });
     }
 
     res.status(200).json({ success: true, data: visitor });
@@ -125,14 +154,14 @@ exports.updateVisitor = async (req, res) => {
   try {
     const { _id, ...updateData } = req.body;
 
-    const updatedVisitor = await Visitor.findByIdAndUpdate(
-      _id,
-      updateData,
-      { new: true }
-    );
+    const updatedVisitor = await Visitor.findByIdAndUpdate(_id, updateData, {
+      new: true,
+    });
 
     if (!updatedVisitor) {
-      return res.status(404).json({ success: false, message: "Visitor not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Visitor not found" });
     }
 
     res.status(200).json({ success: true, data: updatedVisitor });
@@ -153,10 +182,14 @@ exports.deleteVisitor = async (req, res) => {
     );
 
     if (!deletedVisitor) {
-      return res.status(404).json({ success: false, message: "Visitor not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Visitor not found" });
     }
 
-    res.status(200).json({ success: true, message: "Visitor soft-deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Visitor soft-deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -201,13 +234,25 @@ exports.addPlotToVisitor = async (req, res) => {
           plot.holdDate = new Date();
           break;
         case STATUS_IDS.Interested:
-          if (!plot.interestDetails.some(d => d.interestedBy.toString() === visitorId)) {
-            plot.interestDetails.push({ interestedBy: visitorId, interestDate: new Date() });
+          if (
+            !plot.interestDetails.some(
+              (d) => d.interestedBy.toString() === visitorId
+            )
+          ) {
+            plot.interestDetails.push({
+              interestedBy: visitorId,
+              interestDate: new Date(),
+            });
           }
           break;
         case STATUS_IDS.Visited:
-          if (!plot.visitDetails.some(d => d.visitedBy.toString() === visitorId)) {
-            plot.visitDetails.push({ visitedBy: visitorId, visitedDate: new Date() });
+          if (
+            !plot.visitDetails.some((d) => d.visitedBy.toString() === visitorId)
+          ) {
+            plot.visitDetails.push({
+              visitedBy: visitorId,
+              visitedDate: new Date(),
+            });
           }
           break;
       }
@@ -218,7 +263,9 @@ exports.addPlotToVisitor = async (req, res) => {
     if (plotIds.length > 0) {
       // Case 1: Specific plots update/add
       for (const plotId of plotIds) {
-        const existingIndex = visitor.plots.findIndex(p => p.plotId.toString() === plotId);
+        const existingIndex = visitor.plots.findIndex(
+          (p) => p.plotId.toString() === plotId
+        );
 
         if (existingIndex === -1) {
           visitor.plots.push({ plotId, statusId, unitId });
@@ -236,8 +283,7 @@ exports.addPlotToVisitor = async (req, res) => {
           }
         }
       }
-    } 
-    else if (unitId) {
+    } else if (unitId) {
       // Case 2: Bulk update by unitId
       for (const plot of visitor.plots) {
         if (plot.unitId && plot.unitId.toString() === unitId) {
@@ -251,9 +297,10 @@ exports.addPlotToVisitor = async (req, res) => {
           }
         }
       }
-    } 
-    else {
-      return res.status(400).json({ message: "Either plotIds or unitId must be provided" });
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Either plotIds or unitId must be provided" });
     }
 
     if (updated) {
@@ -263,9 +310,8 @@ exports.addPlotToVisitor = async (req, res) => {
     res.status(200).json({
       message: "Plots processed",
       details: messages,
-      visitor
+      visitor,
     });
-
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -278,8 +324,11 @@ exports.updateVisitorPlot = async (req, res) => {
     const visitor = await Visitor.findById(visitorId);
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
-    const plotEntry = visitor.plots.find(p => p.plotId.toString() === plotId);
-    if (!plotEntry) return res.status(404).json({ message: "Plot not found for this visitor" });
+    const plotEntry = visitor.plots.find((p) => p.plotId.toString() === plotId);
+    if (!plotEntry)
+      return res
+        .status(404)
+        .json({ message: "Plot not found for this visitor" });
 
     if (statusId) plotEntry.statusId = statusId;
 
@@ -287,7 +336,8 @@ exports.updateVisitorPlot = async (req, res) => {
 
     // Sync with Plot table
     const plot = await Plot.findById(plotId);
-    if (!plot) return res.status(404).json({ message: "Plot not found in Plot table" });
+    if (!plot)
+      return res.status(404).json({ message: "Plot not found in Plot table" });
 
     // plot.statusId = statusId;
 
@@ -313,13 +363,25 @@ exports.updateVisitorPlot = async (req, res) => {
         plot.holdDate = new Date();
         break;
       case STATUS_IDS.Interested:
-        if (!plot.interestDetails.some(d => d.interestedBy.toString() === visitorId)) {
-          plot.interestDetails.push({ interestedBy: visitorId, interestDate: new Date() });
+        if (
+          !plot.interestDetails.some(
+            (d) => d.interestedBy.toString() === visitorId
+          )
+        ) {
+          plot.interestDetails.push({
+            interestedBy: visitorId,
+            interestDate: new Date(),
+          });
         }
         break;
       case STATUS_IDS.Visited:
-        if (!plot.visitDetails.some(d => d.visitedBy.toString() === visitorId)) {
-          plot.visitDetails.push({ visitedBy: visitorId, visitedDate: new Date() });
+        if (
+          !plot.visitDetails.some((d) => d.visitedBy.toString() === visitorId)
+        ) {
+          plot.visitDetails.push({
+            visitedBy: visitorId,
+            visitedDate: new Date(),
+          });
         }
         break;
     }
@@ -329,9 +391,8 @@ exports.updateVisitorPlot = async (req, res) => {
     res.status(200).json({
       message: "Visitor plot and Plot table updated",
       visitor,
-      plot
+      plot,
     });
-
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -345,7 +406,7 @@ exports.deleteVisitorPlot = async (req, res) => {
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
     const beforeCount = visitor.plots.length;
-    visitor.plots = visitor.plots.filter(p => p.plotId.toString() !== plotId);
+    visitor.plots = visitor.plots.filter((p) => p.plotId.toString() !== plotId);
 
     if (visitor.plots.length === beforeCount) {
       return res.status(404).json({ message: "Plot not found in visitor" });
@@ -360,15 +421,18 @@ exports.deleteVisitorPlot = async (req, res) => {
 
 exports.getAllPlots = async (req, res) => {
   try {
-    const {siteId,unitId} = req.body
-    let filter={siteId:siteId}
-    if(unitId){
-      filter.unitId=unitId
+    const { siteId, unitId } = req.body;
+    // let filter={siteId:siteId}
+    let filter = {};
+    if (unitId) {
+      filter.unitId = unitId;
     }
-    const plots = await Plots.find(filter).collation({ locale: "en", numericOrdering: true }).sort({plotNumber:1})
-      // .populate("plots.plotId")
-      // .populate("plots.statusId")
-      // .populate("followUps.followedUpById");
+    const plots = await Plots.find(filter)
+      .collation({ locale: "en", numericOrdering: true })
+      .sort({ plotNumber: 1 });
+    // .populate("plots.plotId")
+    // .populate("plots.statusId")
+    // .populate("followUps.followedUpById");
 
     if (!plots) return res.status(404).json({ message: "Plots not found" });
 
@@ -380,7 +444,7 @@ exports.getAllPlots = async (req, res) => {
 
 exports.getAllStatus = async (req, res) => {
   try {
-    const status = await Status.find({}).skip(1)
+    const status = await Status.find({}).skip(1);
 
     if (!status) return res.status(404).json({ message: "Status not found" });
 
@@ -392,14 +456,15 @@ exports.getAllStatus = async (req, res) => {
 
 exports.getAllEmployees = async (req, res) => {
   try {
-    const {employeeId} = req.body
-    let filter={}
-    if(employeeId){
-      filter._id = {$ne:new mongoose.Types.ObjectId(employeeId)}
+    const { employeeId } = req.body;
+    let filter = {};
+    if (employeeId) {
+      filter._id = { $ne: new mongoose.Types.ObjectId(employeeId) };
     }
-    const employees = await Employees.find(filter)
+    const employees = await Employees.find(filter);
 
-    if (!employees) return res.status(404).json({ message: "Employees not found" });
+    if (!employees)
+      return res.status(404).json({ message: "Employees not found" });
 
     res.status(200).json({ data: employees });
   } catch (err) {
@@ -412,15 +477,15 @@ exports.getVisitorPlots = async (req, res) => {
     const { visitorId } = req.body;
 
     const visitor = await Visitor.findById(visitorId)
-    .populate("plots.statusId", "statusName colorCode")
+      .populate("plots.statusId", "statusName colorCode")
       .populate({
-    path: "plots.plotId",
-    select: "plotCode plotNumber unitId",
-    populate: {
-      path: "unitId",
-      select: "UnitName"
-    }
-  })
+        path: "plots.plotId",
+        select: "plotCode plotNumber unitId",
+        populate: {
+          path: "unitId",
+          select: "UnitName",
+        },
+      });
 
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
@@ -432,18 +497,26 @@ exports.getVisitorPlots = async (req, res) => {
 
 exports.addFollowUp = async (req, res) => {
   try {
-    const { visitorId, followUpDate, followUpDescription, followUpStatus, notes, remarks, followedUpById } = req.body;
+    const {
+      visitorId,
+      followUpDate,
+      followUpDescription,
+      followUpStatus,
+      notes,
+      remarks,
+      followedUpById,
+    } = req.body;
 
     const visitor = await Visitor.findById(visitorId);
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
     const newFollowUp = {
       followUpDate,
-      followUpDescription, 
-      followUpStatus, 
-      notes, 
+      followUpDescription,
+      followUpStatus,
+      notes,
       remarks,
-      followedUpById
+      followedUpById,
     };
 
     visitor.followUps.push(newFollowUp);
@@ -457,20 +530,32 @@ exports.addFollowUp = async (req, res) => {
 
 exports.updateFollowUp = async (req, res) => {
   try {
-    const { visitorId, followUpId, followUpDate, followUpDescription, followUpStatus, notes, remarks, followedUpById } = req.body;
+    const {
+      visitorId,
+      followUpId,
+      followUpDate,
+      followUpDescription,
+      followUpStatus,
+      notes,
+      remarks,
+      followedUpById,
+    } = req.body;
 
     const visitor = await Visitor.findById(visitorId);
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
-    const followUp = visitor.followUps.find(f => f._id.toString() === followUpId);
-    if (!followUp) return res.status(404).json({ message: "Follow-up not found" });
+    const followUp = visitor.followUps.find(
+      (f) => f._id.toString() === followUpId
+    );
+    if (!followUp)
+      return res.status(404).json({ message: "Follow-up not found" });
 
     if (followUpDate) followUp.followUpDate = followUpDate;
     if (remarks) followUp.remarks = remarks;
     if (followedUpById) followUp.followedUpById = followedUpById;
-    if (notes) followUp.notes = notes
-    if (followUpDescription) followUp.followUpDescription = followUpDescription
-    if (followUpStatus) followUp.followUpStatus = followUpStatus
+    if (notes) followUp.notes = notes;
+    if (followUpDescription) followUp.followUpDescription = followUpDescription;
+    if (followUpStatus) followUp.followUpStatus = followUpStatus;
 
     await visitor.save();
 
@@ -482,13 +567,15 @@ exports.updateFollowUp = async (req, res) => {
 
 exports.deleteFollowUpFromPlot = async (req, res) => {
   try {
-    const { visitorId,followUpId } = req.body;
+    const { visitorId, followUpId } = req.body;
 
     const visitor = await Visitor.findById(visitorId);
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
     const beforeCount = visitor.followUps.length;
-    visitor.followUps = visitor.followUps.filter(f => f._id.toString() !== followUpId);
+    visitor.followUps = visitor.followUps.filter(
+      (f) => f._id.toString() !== followUpId
+    );
 
     if (beforeCount === visitor.followUps.length) {
       return res.status(404).json({ message: "Follow-up not found" });
@@ -503,10 +590,11 @@ exports.deleteFollowUpFromPlot = async (req, res) => {
 
 exports.getVisitorFollowUps = async (req, res) => {
   try {
-    const { visitorId} = req.body;
+    const { visitorId } = req.body;
 
-    const visitor = await Visitor.findById(visitorId)
-      .populate("followUps.followedUpById");
+    const visitor = await Visitor.findById(visitorId).populate(
+      "followUps.followedUpById"
+    );
 
     if (!visitor) return res.status(404).json({ message: "Visitor not found" });
 
@@ -524,11 +612,15 @@ exports.transferFollowUps = async (req, res) => {
     const { fromEmployeeID, toEmployeeID } = req.body;
 
     if (!fromEmployeeID || !toEmployeeID) {
-      return res.status(400).json({ message: "Both fromEmployeeId and toEmployeeId are required" });
+      return res
+        .status(400)
+        .json({ message: "Both fromEmployeeId and toEmployeeId are required" });
     }
 
     if (fromEmployeeID === toEmployeeID) {
-      return res.status(400).json({ message: "Source and target employee cannot be the same" });
+      return res
+        .status(400)
+        .json({ message: "Source and target employee cannot be the same" });
     }
 
     const fromId = new mongoose.Types.ObjectId(fromEmployeeID);
@@ -541,14 +633,16 @@ exports.transferFollowUps = async (req, res) => {
     ).session(session);
 
     if (visitors.length === 0) {
-      return res.status(404).json({ message: "No follow-ups found for the given employee" });
+      return res
+        .status(404)
+        .json({ message: "No follow-ups found for the given employee" });
     }
 
     // Update each visitor's followUps
     for (const visitor of visitors) {
       let modified = false;
 
-      visitor.followUps.forEach(fu => {
+      visitor.followUps.forEach((fu) => {
         if (fu.followedUpById && fu.followedUpById.equals(fromId)) {
           fu.followedUpById = toId;
           modified = true;
@@ -566,9 +660,8 @@ exports.transferFollowUps = async (req, res) => {
 
     res.status(200).json({
       message: "Follow-ups transferred successfully",
-      transferredCount: visitors.length
+      transferredCount: visitors.length,
     });
-
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
@@ -586,7 +679,9 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
     }
 
     // Fetch employee role
-    const employee = await Employees.findById(employeeId).select("employeeRole");
+    const employee = await Employees.findById(employeeId).select(
+      "employeeRole"
+    );
     if (!employee) {
       return res.status(404).json({ message: "Employee not found" });
     }
@@ -601,11 +696,13 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
     // Build match condition
     let matchCondition = {
       "followUps.followUpStatus": "Pending",
-      "followUps.followUpDate": { $gte: startOfDay, $lte: endOfDay }
+      "followUps.followUpDate": { $gte: startOfDay, $lte: endOfDay },
     };
 
     if (employee.employeeRole === "agent") {
-      matchCondition["followUps.followedUpById"] = new mongoose.Types.ObjectId(employeeId);
+      matchCondition["followUps.followedUpById"] = new mongoose.Types.ObjectId(
+        employeeId
+      );
     }
 
     const pendingFollowUps = await Visitor.aggregate([
@@ -618,10 +715,12 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
           from: "employees",
           localField: "followUps.followedUpById",
           foreignField: "_id",
-          as: "employeeDetails"
-        }
+          as: "employeeDetails",
+        },
       },
-      { $unwind: { path: "$employeeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: { path: "$employeeDetails", preserveNullAndEmptyArrays: true },
+      },
 
       {
         $project: {
@@ -635,19 +734,18 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
           notes: "$followUps.notes",
           remarks: "$followUps.remarks",
           employeeName: "$employeeDetails.employeeName",
-          employeeRole: "$employeeDetails.employeeRole"
-        }
+          employeeRole: "$employeeDetails.employeeRole",
+        },
       },
 
-      { $sort: { followUpDate: 1 } }
+      { $sort: { followUpDate: 1 } },
     ]);
 
     res.status(200).json({
       success: true,
       count: pendingFollowUps.length,
-      data: pendingFollowUps
+      data: pendingFollowUps,
     });
-
   } catch (error) {
     console.error("Error fetching pending follow-ups:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -656,13 +754,15 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
 
 exports.getCompletedFollowUpsByEmployee = async (req, res) => {
   try {
-    const { employeeId } = req.body; 
+    const { employeeId } = req.body;
 
     if (!employeeId) {
       return res.status(400).json({ message: "employeeId is required" });
     }
 
-    const employee = await Employees.findById(employeeId).select("employeeRole");
+    const employee = await Employees.findById(employeeId).select(
+      "employeeRole"
+    );
     if (!employee) {
       return res.status(404).json({ message: "Employee not found" });
     }
@@ -676,11 +776,13 @@ exports.getCompletedFollowUpsByEmployee = async (req, res) => {
     // Build match condition
     let matchCondition = {
       "followUps.followUpStatus": "Completed",
-      "followUps.followUpDate": { $gte: startOfToday, $lte: endOfToday }
+      "followUps.followUpDate": { $gte: startOfToday, $lte: endOfToday },
     };
 
     if (employee.employeeRole === "agent") {
-      matchCondition["followUps.followedUpById"] = new mongoose.Types.ObjectId(employeeId);
+      matchCondition["followUps.followedUpById"] = new mongoose.Types.ObjectId(
+        employeeId
+      );
     }
 
     const completedFollowUps = await Visitor.aggregate([
@@ -693,10 +795,12 @@ exports.getCompletedFollowUpsByEmployee = async (req, res) => {
           from: "employees",
           localField: "followUps.followedUpById",
           foreignField: "_id",
-          as: "employeeDetails"
-        }
+          as: "employeeDetails",
+        },
       },
-      { $unwind: { path: "$employeeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: { path: "$employeeDetails", preserveNullAndEmptyArrays: true },
+      },
 
       {
         $project: {
@@ -710,22 +814,20 @@ exports.getCompletedFollowUpsByEmployee = async (req, res) => {
           notes: "$followUps.notes",
           remarks: "$followUps.remarks",
           employeeName: "$employeeDetails.employeeName",
-          employeeRole: "$employeeDetails.employeeRole"
-        }
+          employeeRole: "$employeeDetails.employeeRole",
+        },
       },
 
-      { $sort: { followUpDate: 1 } }
+      { $sort: { followUpDate: 1 } },
     ]);
 
     res.status(200).json({
       success: true,
       count: completedFollowUps.length,
-      data: completedFollowUps
+      data: completedFollowUps,
     });
-
   } catch (error) {
     console.error("Error fetching completed follow-ups:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-

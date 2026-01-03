@@ -13,7 +13,7 @@ const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
 exports.createLead = async (req, res) => {
   const { 
   leadUnitId, leadCreatedById,  leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn, 
-    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,leadDescription,SiteVisitDate,FollowDate,
+    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes,leadDescription,
     leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags ,leadSiteId, documentIds,leadAltPhone
   } = req.body;
   
@@ -64,8 +64,6 @@ const leadDocument = uploadedFiles.map((file, index) => ({
        leadLastName,
        leadEmail,
        leadPhone,
-       SiteVisitDate,
-       FollowDate,
        leadDescription,
        leadJobTitle,
        leadLinkedIn,
