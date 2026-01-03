@@ -17,6 +17,7 @@ const DocumentControllers = require('../controllers/masterControllers/DocumentCo
 const LeadStatusControllers = require('../controllers/masterControllers/LeadStatusControllers')
 const LeadSourceControllers = require('../controllers/masterControllers/LeadSourceControllers')
 const CompanyControllers = require('../controllers/masterControllers/CompanyControllers')
+const VisitorVerientControllers = require('../controllers/masterControllers/VisitorVerientControllers')
 
 //Notification 
 
@@ -131,5 +132,12 @@ router.post('/Company/getAllCompany',CompanyControllers.getAllCompany)
 router.post('/Company/getSingleCompany',CompanyControllers.getCompanyByName)
 router.post('/Company/updateCompany',CompanyControllers.updateCompany)
 router.post('/Company/deleteCompany',CompanyControllers.deleteCompany)
+
+//VisitorVerientControllers
+router.post('/VisitorVerient/createVisitorVerient',VisitorVerientControllers.createVisitorVerient)
+router.post('/VisitorVerient/getAllVisitorVerient',VisitorVerientControllers.getAllVisitorVerient)
+router.post('/VisitorVerient/getSingleVisitorVerient',VisitorVerientControllers.getVisitorVerientByName)
+router.post('/VisitorVerient/updateVisitorVerient',VisitorVerientControllers.updateVisitorVerient)
+router.post('/VisitorVerient/deleteVisitorVerient',VisitorVerientControllers.deleteVisitorVerient)
 
 module.exports = router;
