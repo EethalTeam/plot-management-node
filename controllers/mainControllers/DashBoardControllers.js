@@ -117,14 +117,14 @@ exports.getDayWiseAnsweredCalls = async (req, res) => {
 
 exports.getLeadsBySource = async (req, res) => {
   try {
-    const { role, employeeId } = req.body;
+    const { role, EmployeeId } = req.body;
     console.log(req.body, "req.body");
 
     const matchStage = {};
 
     if (role === "AGENT") {
-      if (!employeeId) return res.status(200).json([]);
-      matchStage.leadAssignedId = new mongoose.Types.ObjectId(employeeId);
+      if (!EmployeeId) return res.status(200).json([]);
+      matchStage.leadAssignedId = new mongoose.Types.ObjectId(EmployeeId);
     }
 
     const data = await Lead.aggregate([
