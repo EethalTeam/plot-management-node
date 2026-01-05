@@ -258,19 +258,69 @@ exports.getCallLogs = async (req, res) => {
     ]);
 
     // 5. Transform the logs to include the Audio URL
-    const logsWithAudio = logs.map(log => {
-      let recordingUrl = null;
+    // const logsWithAudio = logs.map(log => {
+    //   let recordingUrl = null;
 
-      if (log.filename) {
-        // Construct the Telecmi Play URL
-        recordingUrl = `https://rest.telecmi.com/v2/play?appid=${TELECMI_APP_ID}&secret=${TELECMI_APP_SECRET}&file=${log.filename}`;
-      }
+    //   if (log.filename) {
+    //     // Construct the Telecmi Play URL
+    //     recordingUrl = `https://rest.telecmi.com/v2/play?appid=${TELECMI_APP_ID}&secret=${TELECMI_APP_SECRET}&file=${log.filename}`;
+    //   }
 
-      return {
-        ...log, // Spread existing properties
-        recordingUrl: recordingUrl // Add the new URL field
-      };
-    });
+    //   return {
+    //     ...log, // Spread existing properties
+    //     recordingUrl: recordingUrl // Add the new URL field
+    //   };
+    // });
+
+  // ====================== LEAD NAME MAPPING (CORRECT SCHEMA) ======================
+
+// 1. Collect customer phone numbers from call logs
+const phoneNumbers = logs
+  .map(log => {
+    if (log.direction === 'inbound' || log.direction === 'Inbound') {
+      return log.from ? String(log.from) : null;
+    } else {
+      return log.to ? String(log.to) : null;
+    }
+  })
+  .filter(Boolean);
+
+// 2. Fetch matching leads using leadPhone
+const leads = await Lead.find({
+  leadPhone: { $in: phoneNumbers }
+})
+  .select('leadFirstName leadLastName leadPhone')
+  .lean();
+
+// 3. Create phone → leadName map
+const leadPhoneMap = {};
+leads.forEach(lead => {
+  leadPhoneMap[lead.leadPhone] =
+    `${lead.leadFirstName || ''} ${lead.leadLastName || ''}`.trim();
+});
+
+// 4. Attach recordingUrl + leadName to each call log
+const logsWithAudio = logs.map(log => {
+  let recordingUrl = null;
+
+  if (log.filename) {
+    recordingUrl = `https://rest.telecmi.com/v2/play?appid=${TELECMI_APP_ID}&secret=${TELECMI_APP_SECRET}&file=${log.filename}`;
+  }
+
+  const customerPhone =
+    (log.direction === 'inbound' || log.direction === 'Inbound')
+      ? String(log.from || '')
+      : String(log.to || '');
+
+  return {
+    ...log,
+    recordingUrl,
+    leadName: leadPhoneMap[customerPhone] || null   //  FINAL FIX
+  };
+});
+
+
+    
 
     // 6. Send Response
     res.status(200).json({

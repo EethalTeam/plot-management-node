@@ -58,6 +58,10 @@ const TelecmiLogSchema = new mongoose.Schema({
   user: {
     type: String
   },
+  // --- Caller Name ---
+  // callerName:{
+  //  type:String
+  // },
 
   // --- INBOUND SPECIFIC FIELDS ---
   conversation_uuid: {
