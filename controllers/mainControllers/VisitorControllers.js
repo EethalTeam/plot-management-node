@@ -40,12 +40,10 @@ exports.createVisitor = async (req, res) => {
       isActive: true,
     });
     if (ExistingVisitor) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Visitor with this mobile number already exists.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Visitor with this mobile number already exists.",
+      });
     }
     const latestVisitor = await Visitor.findOne({})
       .sort({ visitorCode: -1 })
@@ -110,14 +108,16 @@ exports.getAllVisitors = async (req, res) => {
       .populate({
         path: "plots.plotId",
         select: "plotCode plotNumber unitId siteId",
-        populate: {
-          path: "unitId",
-          select: "UnitName",
-        },
-        populate: {
-          path: "siteId",
-          select: "sitename",
-        },
+        populate: [
+          {
+            path: "unitId",
+            select: "UnitName",
+          },
+          {
+            path: "siteId",
+            select: "sitename",
+          },
+        ],
       })
       .populate("plots.statusId", "statusName colorCode")
       .populate("followUps.followedUpById", "EmployeeName");
