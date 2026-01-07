@@ -94,10 +94,9 @@ router.post(
   "/DashBoard/getLeadsBySource",
   DashboardControllers.getLeadsBySource
 ); //getLeadsBySource
-router.post(
-  "/DashBoard/getCallStatusReport",
-  DashboardControllers.getCallStatusReport
-);
+router.post("/DashBoard/getCallStatusReport",DashboardControllers.getCallStatusReport);
+router.post("/DashBoard/getLeadFollowup",DashboardControllers.getLeadFollowup);
+router.post("/DashBoard/getVisitorFollowup",DashboardControllers.getVisitorFollowup);
 
 router.post("/Lead/getAllLeads", LeadControllers.getAllLeads);
 router.post(

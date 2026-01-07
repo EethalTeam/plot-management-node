@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Lead = require("../../models/masterModels/Leads");
+const Visitor = require('../../models/masterModels/Visitor')
 const Callog = require("../../models/masterModels/TeleCMICallLog");
 
 exports.getAllDashBoard = async (req, res) => {
@@ -221,3 +222,129 @@ exports.getCallStatusReport = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+
+exports.getLeadFollowup = async (req, res) => {
+  try {
+    const { role, EmployeeId } = req.body;
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 3);
+    end.setHours(23, 59, 59, 999);
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: "leadstatuses",
+          localField: "leadStatusId",
+          foreignField: "_id",
+          as: "status",
+        },
+      },
+      { $unwind: "$status" },
+
+      {
+        $match: {
+          "status.leadStatusName": "Follow Up",
+          FollowDate: { $gte: start, $lte: end },
+        },
+      },
+    ];
+
+    if (role === "AGENT" && EmployeeId) {
+      pipeline.push({
+        $match: {
+          leadAssignedId: new mongoose.Types.ObjectId(EmployeeId),
+        },
+      });
+    }
+
+    pipeline.push({
+      $project: {
+        leadFirstName: 1,
+        leadLastName: 1,
+        leadPhone: 1,
+        FollowDate: 1,
+        status: "$status.leadStatusName",
+      },
+    });
+
+    const data = await Lead.aggregate(pipeline);
+    res.status(200).json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
+
+ 
+exports.getVisitorFollowup = async (req, res) => {
+  try {
+    const { role, EmployeeId } = req.body;
+
+    // --------------------
+    // DATE RANGE (NEXT 3 DAYS)
+    // --------------------
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 3);
+    end.setHours(23, 59, 59, 999);
+
+    const pipeline = [
+      // explode followUps array
+      { $unwind: "$followUps" },
+
+      // filter follow-up date + pending
+      {
+        $match: {
+          "followUps.followUpStatus": "Pending",
+          "followUps.followUpDate": {
+            $gte: start,
+            $lte: end,
+          },
+        },
+      },
+    ];
+
+    // --------------------
+    // AGENT FILTER
+    // --------------------
+    if (role === "AGENT" && EmployeeId) {
+      pipeline.push({
+        $match: {
+          employeeId: new mongoose.Types.ObjectId(EmployeeId),
+        },
+      });
+    }
+
+    // --------------------
+    // FINAL RESPONSE SHAPE
+    // --------------------
+    pipeline.push({
+      $project: {
+        visitorName: 1,
+        visitorMobile: 1,
+        followUpDate: "$followUps.followUpDate",
+        followUpStatus: "$followUps.followUpStatus",
+        notes: "$followUps.notes",
+      },
+    });
+
+    const data = await Visitor.aggregate(pipeline);
+
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Visitor Dashboard Follow-up Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
