@@ -2,10 +2,11 @@ const Employee = require('../../models/masterModels/Employee');
 // const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 
+
 // const defaultMenus = require('./defaultMenu.json')
 // const UserRights = require('../../models/masterModels/UserRights')
 // const MenuRegistry = require('../../models/masterModels/MenuRegistry')
-// const RoleBased = require("../../models/masterModels/RBAC")
+const Role = require("../../models/masterModels/RBAC")
 
  
 
@@ -163,6 +164,19 @@ exports.getAllEmployees = async (req, res) => {
     res.status(500).json({ message: 'Error fetching employees', error: error.message });
   }
 };
+
+exports.getAllAgent = async (req, res) => {
+  try {
+    const role = await Role.findOne({RoleName:"AGENT"})
+    const employees = await Employee.find({ isActive: true ,roleId:role._id}).populate('roleId', 'RoleName').populate('SiteId','sitename');
+    res.status(200).json({ data: employees });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching employees', error: error.message });
+  }
+};
+
+
+
 
 // Get Employee by ID
 exports.getEmployeeById = async (req, res) => {

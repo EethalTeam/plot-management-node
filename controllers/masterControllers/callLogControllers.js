@@ -188,7 +188,7 @@ exports.getCallLogs = async (req, res) => {
     // 1. Destructure query parameters for filtering & pagination
     const {
       page = 1,
-      limit = 10,
+      limit = 500,
       direction,
       status,
       search,
