@@ -695,7 +695,7 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
 
     // Build match condition
     let matchCondition = {
-      "followUps.followUpStatus": "Pending",
+      "followUps.followUpStatus": "Visit Pending",
       "followUps.followUpDate": { $gte: startOfDay, $lte: endOfDay },
     };
 
@@ -775,7 +775,7 @@ exports.getCompletedFollowUpsByEmployee = async (req, res) => {
 
     // Build match condition
     let matchCondition = {
-      "followUps.followUpStatus": "Completed",
+      "followUps.followUpStatus": "Visit Completed",
       "followUps.followUpDate": { $gte: startOfToday, $lte: endOfToday },
     };
 

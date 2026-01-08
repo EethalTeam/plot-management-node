@@ -270,6 +270,7 @@ exports.getLeadFollowup = async (req, res) => {
         leadPhone: 1,
         FollowDate: 1,
         status: "$status.leadStatusName",
+        leadNotes:1
       },
     });
 
@@ -303,10 +304,10 @@ exports.getVisitorFollowup = async (req, res) => {
       // explode followUps array
       { $unwind: "$followUps" },
 
-      // filter follow-up date + pending
+      // filter follow-up date + Visit Pending
       {
         $match: {
-          "followUps.followUpStatus": "Pending",
+          "followUps.followUpStatus": "Visit Pending",
           "followUps.followUpDate": {
             $gte: start,
             $lte: end,

@@ -872,7 +872,7 @@ exports.importLeads = async (req, res) => {
 // --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
 exports.addLeadNote = async (req, res) => {
     try {
-      const { leadId, details, employeeName, leadStatusId } = req.body; // Capture current status if applicable
+      const { leadId, details,leadNotes, employeeName, leadStatusId ,FollowDate,SiteVisitDate} = req.body; // Capture current status if applicable
   
       if (!leadId || !details) {
         return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
@@ -893,7 +893,7 @@ exports.addLeadNote = async (req, res) => {
   
       const updatedLead = await Lead.findByIdAndUpdate(
         leadId,
-        { $set: { leadNotes: details }, $push: { leadHistory: newHistoryEntry } },
+        { $set: { leadNotes: leadNotes ,SiteVisitDate:SiteVisitDate,FollowDate:FollowDate,leadStatusId:leadStatusId }, $push: { leadHistory: newHistoryEntry } },
         { new: true }
       );
   
