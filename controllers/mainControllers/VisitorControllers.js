@@ -90,10 +90,12 @@ exports.createVisitor = async (req, res) => {
 exports.getAllVisitors = async (req, res) => {
   try {
     const { employeeId } = req.body;
-    const employee = Employees.findOne({ _id: employeeId });
     const filter = { isActive: true };
-    if (employee.employeeRole === "agent") {
-      filter.employeeId = employeeId;
+    if (employeeId) {
+        filter.$or = [
+           { employeeId:new mongoose.Types.ObjectId(employeeId)},
+            { "followUps.followedUpById":new mongoose.Types.ObjectId(employeeId)}
+             ]
     }
     const visitors = await Visitor.find(filter)
       .populate("employeeId", "EmployeeName")
