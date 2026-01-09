@@ -5,7 +5,7 @@ const Callog = require("../../models/masterModels/TeleCMICallLog");
 
 exports.getAllDashBoard = async (req, res) => {
   try {
-    const { role, TelecmiID } = req.body;
+    const { role, TelecmiID,EmployeeID } = req.body;
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -18,14 +18,23 @@ exports.getAllDashBoard = async (req, res) => {
       answeredsec: { $gt: 0 },
       callDate: { $gte: startOfToday, $lte: endOfToday },
     };
+     
+  const leads= {}
+
+  if(role === "AGENT"){
+    leads.$or = [
+            { leadCreatedById: new mongoose.Types.ObjectId(EmployeeID) },
+            { leadAssignedId: new mongoose.Types.ObjectId(EmployeeID) }
+          ]
+  }
 
     if (role === "AGENT") {
       if (!TelecmiID) return res.status(200).json({ lead: 0, callog: 0 });
       callMatch.user = TelecmiID;
     }
-
+console.log(callMatch,"callMatch")
     const [leadCount, callCount] = await Promise.all([
-      Lead.countDocuments(),
+      Lead.countDocuments(leads),
       Callog.countDocuments(callMatch),
     ]);
 
@@ -125,7 +134,10 @@ exports.getLeadsBySource = async (req, res) => {
 
     if (role === "AGENT") {
       if (!EmployeeId) return res.status(200).json([]);
-      matchStage.leadAssignedId = new mongoose.Types.ObjectId(EmployeeId);
+      matchStage.$or = [
+            { leadCreatedById: new mongoose.Types.ObjectId(EmployeeId) },
+            { leadAssignedId: new mongoose.Types.ObjectId(EmployeeId) }
+          ]
     }
 
     const data = await Lead.aggregate([

@@ -175,12 +175,10 @@ exports.updateVisitor = async (req, res) => {
 // Soft Delete Visitor
 exports.deleteVisitor = async (req, res) => {
   try {
-    const { id } = req.body;
+    const { _id } = req.body;
 
-    const deletedVisitor = await Visitor.findByIdAndUpdate(
-      id,
-      { isActive: false },
-      { new: true }
+    const deletedVisitor = await Visitor.findByIdAndDelete(
+      _id
     );
 
     if (!deletedVisitor) {
