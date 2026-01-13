@@ -3,6 +3,7 @@ const XLSX = require("xlsx");
 const Employee = require('../../models/masterModels/Employee'); // Adjust path
 const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
 const Visitor = require('../../models/masterModels/Visitor'); // Adjust path
+const Notification = require("../../models/masterModels/Notification");
 const path = require('path');
 const fs = require('fs'); // For file system operations (e.g., deleting files)
 const { default: mongoose } = require('mongoose');
@@ -284,6 +285,41 @@ exports.updateLead = async (req, res) => {
         leadStatusId: updatedData.leadStatusId,
         timestamp: new Date(),
       });
+      // 🔔 Notify Admin & Super Admin on Lead Status Change
+      const io = req.app.get("socketio");
+
+      // Find Admin & SuperAdmin for same unit
+      const admins = await Employee.find({
+        unitId: oldLead.leadUnitId,
+        role: { $in: ["Admin", "SuperAdmin"] },
+      });
+
+      for (const admin of admins) {
+        const notification = new Notification({
+          unitId: oldLead.leadUnitId,
+          fromEmployeeId: leadCreatedById || oldLead.leadAssignedId,
+          toEmployeeId: admin._id,
+          type: "lead-status-change",
+          message: `Lead "${oldLead.leadFirstName} ${oldLead.leadLastName}" status changed from ${oldLeadStatusName} to ${newLeadStatusName}`,
+          meta: {
+            leadId: oldLead._id,
+            oldStatus: oldLeadStatusName,
+            newStatus: newLeadStatusName,
+          },
+          status: "unseen",
+        });
+
+        await notification.save();
+
+        //  Realtime emit
+        if (io) {
+          io.to(admin._id.toString()).emit(
+            "receiveNotification",
+            notification
+          );
+        }
+      }
+
 
 
     }
@@ -898,12 +934,12 @@ exports.addLeadNote = async (req, res) => {
         });
 
 
-            const newFollowUp = {
-      followUpDate: SiteVisitDate,
-      followUpStatus:'Visit Pending',
-      notes:leadNotes,
-      followedUpById: oldLead.leadAssignedId || oldLead.leadCreatedById,
-    };
+        const newFollowUp = {
+          followUpDate: SiteVisitDate,
+          followUpStatus: 'Visit Pending',
+          notes: leadNotes,
+          followedUpById: oldLead.leadAssignedId || oldLead.leadCreatedById,
+        };
         newVisitor.followUps.push(newFollowUp);
 
         await newVisitor.save();

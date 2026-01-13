@@ -9,7 +9,7 @@ const fs = require('fs');
 const multer = require('multer')
 const masterRoutes = require('./routes/masterRoutes');
 const mainRoutes = require('./routes/mainRoutes');
-const Notification = require('./models/masterModels/Notifications');
+const Notification = require('./models/masterModels/Notification');
 const CallLogController=require('./controllers/masterControllers/callLogControllers')
 const LeadController = require('./controllers/masterControllers/LeadControllers')
 const upload = multer({ dest: 'uploads/' });
@@ -58,29 +58,134 @@ const io = new Server(server, {
   }
 });
 
+// io.on("connection", (socket) => {
+//   console.log("⚡ A client connected:", socket.id);
+
+//   socket.on("joinRoom", ({ unitId }) => {
+//     socket.join(unitId);
+//     console.log(`Socket ${socket.id} joined room: ${unitId}`);
+//   });
+
+//   socket.on("sendMessage", async ({ toUnitId, message }) => {
+//     io.to(toUnitId).emit("receiveMessage", message);
+// try { 
+//     await Notification.create({
+//       unitId: toUnitId,
+//       message,
+//     });
+//   } catch (err) {
+//     console.error("❌ Error saving notification:", err.message);
+//   }
+// });
+
+//   socket.on("disconnect", () => {
+//   });
+// })
+
+const employeeSockets = new Map(); // employeeId -> Set of socketIds
+
 io.on("connection", (socket) => {
   console.log("⚡ A client connected:", socket.id);
 
-  socket.on("joinRoom", ({ unitId }) => {
-    socket.join(unitId);
-    console.log(`Socket ${socket.id} joined room: ${unitId}`);
+  // ================== Join Room for Personal Notifications ==================
+  socket.on("joinRoom", ({ employeeId }) => {
+    socket.employeeId = employeeId;
+    socket.join(employeeId);
+
+    if (!employeeSockets.has(employeeId)) {
+      employeeSockets.set(employeeId, new Set());
+    }
+    employeeSockets.get(employeeId).add(socket.id);
+
+    console.log(`Socket ${socket.id} joined personal room: ${employeeId}`);
   });
 
-  socket.on("sendMessage", async ({ toUnitId, message }) => {
-    io.to(toUnitId).emit("receiveMessage", message);
-try { 
-    await Notification.create({
-      unitId: toUnitId,
+  // ================== Send Message (Notification) ==================
+  socket.on(
+    "sendMessage",
+    async ({
+      type,
       message,
-    });
-  } catch (err) {
-    console.error("❌ Error saving notification:", err.message);
-  }
+      toEmployeeId = null,
+      groupId = null,
+      meta = {},
+    }) => {
+      try {
+        const notification = await createNotification({
+          type,
+          message,
+          fromEmployeeId: socket.employeeId,
+          toEmployeeId,
+          groupId,
+          meta,
+        });
+
+        console.log("✅ Notification created:", notification._id);
+      } catch (err) {
+        console.error("❌ Error sending notification:", err.message);
+      }
+    }
+  );
+
+  // ================== Disconnect ==================
+  socket.on("disconnect", () => {
+    const { employeeId } = socket;
+    if (employeeId && employeeSockets.has(employeeId)) {
+      const sockets = employeeSockets.get(employeeId);
+      sockets.delete(socket.id);
+      if (sockets.size === 0) {
+        employeeSockets.delete(employeeId);
+      }
+    }
+    console.log(`❌ Socket disconnected: ${socket.id}`);
+  });
 });
 
-  socket.on("disconnect", () => {
-  });
-})
+// ---------------- HELPER: CREATE NOTIFICATION ----------------
+const createNotification = async ({
+  type,
+  message,
+  fromEmployeeId,
+  toEmployeeId = null,
+  groupId = null,
+  // meta = {},
+}) => {
+  try {
+    const notificationData = {
+      type,
+      message,
+      fromEmployeeId,
+      toEmployeeId,
+      groupId,
+      // meta,
+    };
+
+    // Specific logic for notification status
+    if (["leave-request", "permission-request"].includes(type)) {
+      notificationData.status = "unseen";
+    } else {
+      notificationData.status = "seen";
+    }
+
+    const notification = await Notification.create(notificationData);
+
+    // Emit via socket if online
+    if (toEmployeeId) {
+      io.to(toEmployeeId.toString()).emit("receiveNotification", notification);
+    }
+    // Group chat emission remains commented out/skipped as requested
+
+    return notification;
+  } catch (err) {
+    console.error("❌ Error creating notification:", err.message);
+    throw err;
+  }
+};
+
+
+
+
+
 
 // MongoDB Connection
 async function main() {

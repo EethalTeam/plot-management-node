@@ -3,64 +3,130 @@ const Lead = require("../../models/masterModels/Leads");
 const Visitor = require('../../models/masterModels/Visitor')
 const Callog = require("../../models/masterModels/TeleCMICallLog");
 
+// exports.getAllDashBoard = async (req, res) => {
+//   try {
+//     const { role, TelecmiID,EmployeeID } = req.body;
+
+//     const startOfToday = new Date();
+//     startOfToday.setHours(0, 0, 0, 0);
+
+//     const endOfToday = new Date();
+//     endOfToday.setHours(23, 59, 59, 999);
+
+//     // ---------- CALL FILTER ----------
+//     const callMatch = {
+//       answeredsec: { $gt: 0 },
+//       callDate: { $gte: startOfToday, $lte: endOfToday },
+//     };
+     
+//   const leads= {}
+
+//   if(role === "AGENT"){
+//     leads.$or = [
+//             { leadCreatedById: new mongoose.Types.ObjectId(EmployeeID) },
+//             { leadAssignedId: new mongoose.Types.ObjectId(EmployeeID) }
+//           ]
+//   }
+
+//     if (role === "AGENT") {
+//       if (!TelecmiID) return res.status(200).json({ lead: 0, callog: 0 });
+//       callMatch.user = TelecmiID;
+//     }
+// console.log(callMatch,"callMatch")
+//     const [leadCount, callCount] = await Promise.all([
+//       Lead.countDocuments(leads),
+//       Callog.countDocuments(callMatch),
+//     ]);
+
+//     res.status(200).json({
+//       lead: leadCount,
+//       callog: callCount,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
 exports.getAllDashBoard = async (req, res) => {
   try {
-    const { role, TelecmiID,EmployeeID } = req.body;
+    const { role, TelecmiID, EmployeeID, fromDate, toDate } = req.body;
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // -------------------------
+    // DATE RANGE (FROM FRONTEND)
+    // -------------------------
+    const start = fromDate ? new Date(fromDate) : new Date();
+    const end = toDate ? new Date(toDate) : new Date();
 
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
 
-    // ---------- CALL FILTER ----------
+    // -------------------------
+    // CALL FILTER
+    // -------------------------
     const callMatch = {
       answeredsec: { $gt: 0 },
-      callDate: { $gte: startOfToday, $lte: endOfToday },
+      callDate: { $gte: start, $lte: end },
     };
-     
-  const leads= {}
 
-  if(role === "AGENT"){
-    leads.$or = [
-            { leadCreatedById: new mongoose.Types.ObjectId(EmployeeID) },
-            { leadAssignedId: new mongoose.Types.ObjectId(EmployeeID) }
-          ]
-  }
 
     if (role === "AGENT") {
-      if (!TelecmiID) return res.status(200).json({ lead: 0, callog: 0 });
+      if (!TelecmiID) {
+        return res.status(200).json({ lead: 0, callog: 0 });
+      }
       callMatch.user = TelecmiID;
     }
-console.log(callMatch,"callMatch")
+
+    // -------------------------
+    // LEAD FILTER
+    // -------------------------
+   const leadMatch = {
+  createdAt: { $gte: start, $lte: end },
+};
+
+    if (role === "AGENT" && EmployeeID) {
+      leadMatch.$or = [
+        { leadCreatedById: new mongoose.Types.ObjectId(EmployeeID) },
+        { leadAssignedId: new mongoose.Types.ObjectId(EmployeeID) },
+      ];
+    }
+
+    // -------------------------
+    // PARALLEL COUNTS
+    // -------------------------
     const [leadCount, callCount] = await Promise.all([
-      Lead.countDocuments(leads),
+      Lead.countDocuments(leadMatch),
       Callog.countDocuments(callMatch),
     ]);
 
+    // -------------------------
+    // RESPONSE
+    // -------------------------
     res.status(200).json({
       lead: leadCount,
       callog: callCount,
     });
   } catch (error) {
+    console.error("Dashboard Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
+
+
 exports.getDayWiseAnsweredCalls = async (req, res) => {
   try {
-    const { role, TelecmiID } = req.body;
+    const { role, TelecmiID ,fromDate, toDate } = req.body;
 
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+   const start = fromDate ? new Date(fromDate) : new Date();
+    const end = toDate ? new Date(toDate) : new Date();
 
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
 
-    const matchQuery = {
+     const matchQuery = {
       answeredsec: { $gt: 0 },
-      callDate: { $gte: startOfWeek, $lt: endOfWeek },
+      callDate: { $gte: start, $lte: end },
     };
 
     if (role === "AGENT") {
@@ -127,10 +193,18 @@ exports.getDayWiseAnsweredCalls = async (req, res) => {
 
 exports.getLeadsBySource = async (req, res) => {
   try {
-    const { role, EmployeeId } = req.body;
+    const { role, EmployeeId,fromDate, toDate  } = req.body;
     console.log(req.body, "req.body");
 
-    const matchStage = {};
+     const start = fromDate ? new Date(fromDate) : new Date();
+    const end = toDate ? new Date(toDate) : new Date();
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const matchStage = {
+      createdAt: { $gte: start, $lte: end },
+    };
 
     if (role === "AGENT") {
       if (!EmployeeId) return res.status(200).json([]);
@@ -174,22 +248,16 @@ exports.getLeadsBySource = async (req, res) => {
 
 exports.getCallStatusReport = async (req, res) => {
   try {
-    const { TelecmiID, role } = req.body;
+    const { TelecmiID, role ,fromDate, toDate } = req.body;
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const start = fromDate ? new Date(fromDate) : new Date();
+    const end = toDate ? new Date(toDate) : new Date();
 
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
 
-    // -------------------------
-    // BUILD MATCH CONDITION
-    // -------------------------
     const matchQuery = {
-      callDate: {
-        $gte: startOfToday,
-        $lte: endOfToday,
-      },
+      callDate: { $gte: start, $lte: end },
     };
 
     //  If AGENT → restrict to own calls

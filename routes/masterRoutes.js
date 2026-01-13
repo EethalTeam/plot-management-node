@@ -21,11 +21,16 @@ const VisitorVerientControllers = require("../controllers/masterControllers/Visi
 
 //Notification
 
-router.post("/notifications", NotificationController.createNotification);
-router.post(
-  "/Notifications/getNotifications",
-  NotificationController.getNotificationsByUnit
-);
+// router.post("/notifications", NotificationController.createNotification);
+// router.post(
+//   "/Notifications/getNotifications",
+//   NotificationController.getNotificationsByUnit
+// );
+
+router.post("/Notifications/createNotifications", NotificationController.createNotification);
+router.post("/Notifications/getNotifications", NotificationController.getNotificationsByEmployee);
+router.post("/Notifications/updateNotificationStatus", NotificationController.updateNotificationStatus);
+router.post("/Notifications/markAsSeen", NotificationController.markAsSeen);
 
 router.post("/CallLogs/getAllCallLogs", CallLogController.getCallLogs);
 router.post("/CallLogs/Qualify", CallLogController.qualifyCallLog);
