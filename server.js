@@ -148,7 +148,7 @@ const createNotification = async ({
   fromEmployeeId,
   toEmployeeId = null,
   groupId = null,
-  // meta = {},
+  meta = {},
 }) => {
   try {
     const notificationData = {
@@ -157,7 +157,7 @@ const createNotification = async ({
       fromEmployeeId,
       toEmployeeId,
       groupId,
-      // meta,
+      meta,
     };
 
     // Specific logic for notification status

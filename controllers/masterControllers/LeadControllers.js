@@ -4,6 +4,7 @@ const Employee = require('../../models/masterModels/Employee'); // Adjust path
 const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
 const Visitor = require('../../models/masterModels/Visitor'); // Adjust path
 const Notification = require("../../models/masterModels/Notification");
+const RoleBased = require('../../models/masterModels/RBAC')
 const path = require('path');
 const fs = require('fs'); // For file system operations (e.g., deleting files)
 const { default: mongoose } = require('mongoose');
@@ -117,6 +118,8 @@ exports.createLead = async (req, res) => {
     const newLead = new Lead(createData);
 
     const savedLead = await newLead.save();
+
+
 
     res.status(201).json({
       success: true,
@@ -278,6 +281,7 @@ exports.updateLead = async (req, res) => {
     const oldLeadStatusName = oldLead.leadStatusId ? (await LeadStatus.findById(oldLead.leadStatusId)).leadStatustName : "N/A";
     const newLeadStatusName = updatedData.leadStatusId ? (await LeadStatus.findById(updatedData.leadStatusId)).leadStatustName : oldLeadStatusName;
     if (updatedData.leadStatusId && updatedData.leadStatusId.toString() !== oldLead.leadStatusId?.toString()) {
+      console.log("here")
       historyEntries.push({
         eventType: "Status Change",
         details: `Status updated from ${oldLeadStatusName} to ${newLeadStatusName} by ${employeeName}`,
@@ -285,41 +289,56 @@ exports.updateLead = async (req, res) => {
         leadStatusId: updatedData.leadStatusId,
         timestamp: new Date(),
       });
-      // 🔔 Notify Admin & Super Admin on Lead Status Change
+      //  Notify Admin & Super Admin on Lead Status Change
       const io = req.app.get("socketio");
 
-      // Find Admin & SuperAdmin for same unit
-      const admins = await Employee.find({
-        unitId: oldLead.leadUnitId,
-        role: { $in: ["Admin", "SuperAdmin"] },
-      });
-
-      for (const admin of admins) {
-        const notification = new Notification({
-          unitId: oldLead.leadUnitId,
-          fromEmployeeId: leadCreatedById || oldLead.leadAssignedId,
-          toEmployeeId: admin._id,
-          type: "lead-status-change",
-          message: `Lead "${oldLead.leadFirstName} ${oldLead.leadLastName}" status changed from ${oldLeadStatusName} to ${newLeadStatusName}`,
-          meta: {
-            leadId: oldLead._id,
-            oldStatus: oldLeadStatusName,
-            newStatus: newLeadStatusName,
-          },
-          status: "unseen",
-        });
-
-        await notification.save();
-
-        //  Realtime emit
-        if (io) {
-          io.to(admin._id.toString()).emit(
-            "receiveNotification",
-            notification
-          );
-        }
+      // 2. Find SuperAdmins and Admins
+      const adminRoleId = await RoleBased.findOne({ RoleName: "Admin" });
+      if (!adminRoleId) {
+        res.status(400).json({ message: "Admin role not found" });
+      }
+      const superAdminRoleId = await RoleBased.findOne({ RoleName: "superadmin" });
+      if (!superAdminRoleId) {
+        res.status(400).json({ message: "SuperAdmin role not found" });
       }
 
+      console.log("Admin Role:", adminRoleId?._id);
+      console.log("SuperAdmin Role:", superAdminRoleId?._id);
+
+      // Find all Admin & SuperAdmin
+      const admins = await Employee.find({
+        roleId: { $in: [superAdminRoleId._id, adminRoleId._id] }
+      });
+      console.log("Admins Found:", admins.length);
+
+      if (admins.length > 0) {
+        const io = req.app.get("socketio");
+
+        const notificationPromises = admins.map(async (admin) => {
+          const newNotification = new Notification({
+            fromEmployeeId: leadCreatedById || oldLead.leadAssignedId,
+            toEmployeeId: admin._id,
+            message: `Lead "${oldLead.leadFirstName} ${oldLead.leadLastName}" status changed from ${oldLeadStatusName} to ${newLeadStatusName}`,
+            type: "leadStatus-change",
+            status: "unseen",
+            meta: {
+              leadId: oldLead._id,
+              oldStatus: oldLeadStatusName,
+              newStatus: newLeadStatusName,
+            }
+          });
+
+          await newNotification.save();
+          console.log(newNotification,"newNotification")
+
+          // 3. Emit via Socket.io
+          if (io) {
+            io.to(admin._id.toString()).emit("receiveNotification", newNotification);
+          }
+        });
+
+        await Promise.all(notificationPromises);
+      }
 
 
     }
@@ -419,6 +438,61 @@ exports.assignLead = async (req, res) => {
       },
       { new: true, runValidators: true }
     ).populate('leadAssignedId', 'EmployeeName');
+   
+
+
+// --- ASSIGNMENT NOTIFICATION ---
+const io = req.app.get("socketio");
+
+// FIX 1: Correct variable name
+const assignedEmployee = await Employee.findById(leadAssignedId);
+
+// Who assigned the lead
+const assignedById = req.user?._id || lead.leadCreatedById;
+const assignedByName = employeeName || "System";
+
+// Find Admin & SuperAdmin roles
+const adminRole = await RoleBased.findOne({ RoleName: "Admin" });
+const superAdminRole = await RoleBased.findOne({ RoleName: "superadmin" });
+
+const admins = await Employee.find({
+  roleId: { $in: [adminRole._id, superAdminRole._id] }
+});
+
+// 🔔 Notify Admin & SuperAdmin
+const adminNotifications = admins.map(async (admin) => {
+  const notification = new Notification({
+    fromEmployeeId: assignedById,
+    toEmployeeId: admin._id,
+
+    message: `Lead "${lead.leadFirstName} ${lead.leadLastName}" assigned to ${assignedEmployee.EmployeeName} by ${assignedByName}`,
+
+    type: "lead-assigned",
+    status: "unseen",
+
+    meta: {
+      leadId: lead._id,
+
+      assignedToId: assignedEmployee._id,
+      assignedToName: assignedEmployee.EmployeeName,
+
+      assignedById: assignedById,
+      assignedByName: assignedByName,
+    }
+  });
+
+  await notification.save();
+
+  if (io) {
+    io.to(admin._id.toString()).emit("receiveNotification", notification);
+  }
+});
+
+
+await Promise.all(adminNotifications);
+
+
+
 
     res.status(200).json({
       success: true,
@@ -906,8 +980,59 @@ exports.addLeadNote = async (req, res) => {
       { new: true }
     );
 
+    // --- STATUS CHANGE NOTIFICATION ---
+const oldStatusId = oldLead.leadStatusId?.toString();
+const newStatusId = leadStatusId?.toString();
+
+if (newStatusId && oldStatusId !== newStatusId) {
+
+  const oldStatus = await LeadStatus.findById(oldStatusId);
+  const newStatus = await LeadStatus.findById(newStatusId);
+
+  const oldStatusName = oldStatus?.leadStatustName || "N/A";
+  const newStatusName = newStatus?.leadStatustName || "N/A";
+
+  const io = req.app.get("socketio");
+
+  const adminRoleId = await RoleBased.findOne({ RoleName: "Admin" });
+  if (!adminRoleId) return res.status(400).json({ message: "Admin role not found" });
+
+  const superAdminRoleId = await RoleBased.findOne({ RoleName: "superadmin" });
+  if (!superAdminRoleId) return res.status(400).json({ message: "SuperAdmin role not found" });
+
+  const admins = await Employee.find({
+    roleId: { $in: [adminRoleId._id, superAdminRoleId._id] }
+  });
+
+  const notificationPromises = admins.map(async (admin) => {
+
+    const notification = new Notification({
+      fromEmployeeId: oldLead.leadAssignedId || oldLead.leadCreatedById,
+      toEmployeeId: admin._id,
+      message: `Lead "${oldLead.leadFirstName} ${oldLead.leadLastName}" status changed from ${oldStatusName} to ${newStatusName}`,
+      type: "leadStatus-change",
+      status: "unseen",
+      meta: {
+        leadId: oldLead._id,
+        oldStatus: oldStatusName,
+        newStatus: newStatusName,
+      }
+    });
+
+    await notification.save();
+
+    if (io) {
+      io.to(admin._id.toString()).emit("receiveNotification", notification);
+    }
+  });
+
+  await Promise.all(notificationPromises);
+}
+
+
+
     const targetStatus = await LeadStatus.findById(leadStatusId);
-    console.log(targetStatus, "targetStatus")
+    // console.log(targetStatus, "targetStatus")
     if (targetStatus && targetStatus.leadStatustName === "Site Visit") {
       const ExistingVisitor = await Visitor.findOne({ visitorMobile: oldLead.leadPhone, isActive: true });
       if (!ExistingVisitor) {

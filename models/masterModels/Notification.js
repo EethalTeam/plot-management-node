@@ -80,25 +80,32 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
   type: String,
+   enum: [
+        "leadStatus-change",
+        "lead-assigned",
+        "general",
+       
+      ],
   default: "general",
 },
 meta: {
-  type: Object,
-  default: {},
+  leadId: { type: mongoose.Schema.Types.ObjectId, ref: "Lead" },
+  oldStatus: String,
+  newStatus: String,
+
+   assignedToId: {    type: mongoose.Schema.Types.ObjectId, ref: "Employee",  },
+   assignedToName: String,
+
+    assignedById: {  type: mongoose.Schema.Types.ObjectId,  ref: "Employee",  },
+      assignedByName: String,
+    
 },
     status: {
       type: String,
       enum: ["unseen", "seen","approved","rejected"],
       default: "unseen",
     },
-    // meta: {
-    //   SessionId: { type: mongoose.Schema.Types.ObjectId, ref: "Session" },
-    //   PhysioId: { type: mongoose.Schema.Types.ObjectId, ref: "Physio" },
-    //   PatientId: { type: mongoose.Schema.Types.ObjectId, ref: "Patient" },
-    //   ReviewId: { type: mongoose.Schema.Types.ObjectId, ref: "Review"  },
-    //   ConsultationId: { type: mongoose.Schema.Types.ObjectId, ref: "Consultation"  },
-    //   LeadId: { type: mongoose.Schema.Types.ObjectId, ref: "Lead"  },
-    // },
+   
   },
   { timestamps: true }
 );
