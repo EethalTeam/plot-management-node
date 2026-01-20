@@ -11,7 +11,7 @@ const STATUS_IDS = {
   Hold: "68919db26c96e8d502df4716",
   Sold: "68919dc96c96e8d502df471a",
   Interested: "689343a2be2ae7f865e038a1",
-  Visited: "68947ddcbb5588af59c8a1eb",
+  // Visited: "68947ddcbb5588af59c8a1eb",
 };
 // Create Visitor
 exports.createVisitor = async (req, res) => {
@@ -109,7 +109,7 @@ exports.getAllVisitors = async (req, res) => {
       })
       .populate({
         path: "plots.plotId",
-        select: "plotCode plotNumber unitId siteId",
+        select: "plotCode plotNumber unitId siteId areaInSqFt facing",
         populate: [
           {
             path: "unitId",
@@ -327,15 +327,15 @@ exports.updateVisitorPlot = async (req, res) => {
     const plotEntry = visitor.plots.find((p) => p.plotId.toString() === plotId);
     if (!plotEntry)
       return res
-        .status(404)
-        .json({ message: "Plot not found for this visitor" });
+        .status(200)
+        .json({ message: "Plot already added to this visitor" });
 
     if (statusId) plotEntry.statusId = statusId;
 
     await visitor.save();
 
     // Sync with Plot table
-    const plot = await Plot.findById(plotId);
+    const plot = await Plots.findById(plotId);
     if (!plot)
       return res.status(404).json({ message: "Plot not found in Plot table" });
 
@@ -444,7 +444,7 @@ exports.getAllPlots = async (req, res) => {
 
 exports.getAllStatus = async (req, res) => {
   try {
-    const status = await Status.find({}).skip(1);
+    const status = await Status.find({isActive:true}).skip(1);
 
     if (!status) return res.status(404).json({ message: "Status not found" });
 
@@ -457,7 +457,12 @@ exports.getAllStatus = async (req, res) => {
 exports.getAllEmployees = async (req, res) => {
   try {
     const { employeeId } = req.body;
-    let filter = {};
+    // let filter = {};
+
+   let filter = {
+      EmployeeName: { $ne: "Eethal" } // hide Eethal
+    };
+
     if (employeeId) {
       filter._id = { $ne: new mongoose.Types.ObjectId(employeeId) };
     }
@@ -480,7 +485,7 @@ exports.getVisitorPlots = async (req, res) => {
       .populate("plots.statusId", "statusName colorCode")
       .populate({
         path: "plots.plotId",
-        select: "plotCode plotNumber unitId",
+        select: "plotCode plotNumber areaInSqFt unitId",
         populate: {
           path: "unitId",
           select: "UnitName",
