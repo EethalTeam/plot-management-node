@@ -527,7 +527,7 @@ exports.addFollowUp = async (req, res) => {
     visitor.followUps.push(newFollowUp);
     await visitor.save();
 
-    res.status(200).json({ message: "Follow-up added", visitor });
+    res.status(200).json({ visitor });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -564,7 +564,7 @@ exports.updateFollowUp = async (req, res) => {
 
     await visitor.save();
 
-    res.status(200).json({ message: "Follow-up updated", visitor });
+    res.status(200).json({ visitor });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -587,7 +587,7 @@ exports.deleteFollowUpFromPlot = async (req, res) => {
     }
 
     await visitor.save();
-    res.status(200).json({ message: "Follow-up deleted", visitor });
+    res.status(200).json({  visitor });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -664,7 +664,7 @@ exports.transferFollowUps = async (req, res) => {
     session.endSession();
 
     res.status(200).json({
-      message: "Follow-ups transferred successfully",
+    
       transferredCount: visitors.length,
     });
   } catch (err) {
