@@ -4,8 +4,8 @@ const followUpSchema = new mongoose.Schema({
   followUpDate: { type: Date }, // Timestamp for follow-up
   followUpStatus: {
     type: String,
-    enum: ["Visit Pending", "Visit Completed"],
-    default: "Visit Pending",
+    enum: ["Visit Not Yet", "Visit Completed"],
+    default: "Visit Not Yet",
   },
   followedUpById: {
     type: mongoose.Schema.Types.ObjectId,

@@ -308,7 +308,7 @@ exports.addPlotToVisitor = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Plots processed",
+      // message: "Plots processed",
       details: messages,
       visitor,
     });
@@ -700,7 +700,7 @@ exports.getPendingFollowUpsByEmployee = async (req, res) => {
 
     // Build match condition
     let matchCondition = {
-      "followUps.followUpStatus": "Visit Pending",
+      "followUps.followUpStatus": "Visit Not Yet",
       "followUps.followUpDate": { $gte: startOfDay, $lte: endOfDay },
     };
 

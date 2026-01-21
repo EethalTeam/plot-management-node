@@ -387,7 +387,7 @@ exports.getVisitorFollowup = async (req, res) => {
       // filter follow-up date + Visit Pending
       {
         $match: {
-          "followUps.followUpStatus": "Visit Pending",
+          "followUps.followUpStatus": "Visit Not Yet",
           "followUps.followUpDate": {
             $gte: start,
             $lte: end,

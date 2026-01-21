@@ -448,7 +448,7 @@ const io = req.app.get("socketio");
 const assignedEmployee = await Employee.findById(leadAssignedId);
 
 // Who assigned the lead
-const assignedById = req.user?._id || lead.leadCreatedById;
+const assignedById =  lead.leadCreatedById;
 const assignedByName = employeeName || "System";
 
 // Find Admin & SuperAdmin roles
@@ -486,8 +486,42 @@ const adminNotifications = admins.map(async (admin) => {
   if (io) {
     io.to(admin._id.toString()).emit("receiveNotification", notification);
   }
+  // Notify Assigned Agent
+
+
+
+
 });
 
+const agentNotification = new Notification({
+  fromEmployeeId: assignedById,
+  toEmployeeId: assignedEmployee._id,
+
+  message: `A lead "${lead.leadFirstName} ${lead.leadLastName}" has been assigned to you by ${assignedByName}`,
+
+  type: "lead-assigned",
+  status: "unseen",
+
+  meta: {
+    leadId: lead._id,
+
+    assignedToId: assignedEmployee._id,
+    assignedToName: assignedEmployee.EmployeeName,
+
+    assignedById: assignedById,
+    assignedByName: assignedByName,
+  }
+});
+
+await agentNotification.save();
+
+// Emit socket to assigned agent
+if (io) {
+  io.to(assignedEmployee._id.toString()).emit(
+    "receiveNotification",
+    agentNotification
+  );
+}
 
 await Promise.all(adminNotifications);
 
@@ -1061,7 +1095,7 @@ if (newStatusId && oldStatusId !== newStatusId) {
 
         const newFollowUp = {
           followUpDate: SiteVisitDate,
-          followUpStatus: 'Visit Pending',
+          followUpStatus: 'Visit Not Yet',
           notes: leadNotes,
           followedUpById: oldLead.leadAssignedId || oldLead.leadCreatedById,
         };
