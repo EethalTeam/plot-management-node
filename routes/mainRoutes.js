@@ -118,5 +118,5 @@ router.post(
   upload.single("leadFile"),
   LeadControllers.addLeadDocument
 );
-
+router.post("/Lead/getLeadNameByNumber",LeadControllers.getLeadNameByNumber)
 module.exports = router;

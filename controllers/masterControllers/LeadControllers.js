@@ -1116,3 +1116,47 @@ if (newStatusId && oldStatusId !== newStatusId) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
+// exports.getLeadNameByNumber =async (req,res) => {
+//   try {
+//     const {leadPhone} = req.body
+//     const lead = await Lead.findOne({leadPhone:leadPhone})
+//     if(!lead){
+//       res.status(400).json({message:"Error backend controllers leadphone not found"})
+//     }
+//     res.status(200).json(lead)
+//   } catch (error) {
+//     res.status(500).json({message:error.message})
+//   }
+// }
+
+exports.getLeadNameByNumber = async (req, res) => {
+  try {
+    const { number } = req.body;
+
+    const lead = await Lead.findOne({ leadPhone: number });
+
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: "Lead phone not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        leadFirstName: lead.leadFirstName,
+        leadLastName:lead.leadLastName,
+        leadPhone: lead.leadPhone,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
