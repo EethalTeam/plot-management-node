@@ -9,6 +9,7 @@ const PlotControllers = require("../controllers/mainControllers/PlotControllers"
 const LeadControllers = require("../controllers/masterControllers/LeadControllers");
 const DashboardControllers = require("../controllers/mainControllers/DashBoardControllers");
 const upload = require("../utils/upload");
+const ReportControllers = require('../controllers/mainControllers/ReportControllers')
 
 router.post("/Log/getAllLogs", LogControllers.getAllLogs);
 router.post("/Log/getFilteredLogs", LogControllers.getFilteredLogs);
@@ -119,4 +120,18 @@ router.post(
   LeadControllers.addLeadDocument
 );
 router.post("/Lead/getLeadNameByNumber",LeadControllers.getLeadNameByNumber)
+
+
+//ReportControllers
+// router.post("/Report/getAllReport",ReportControllers.getAllReport)
+// router.post("/Report/AgentSummary",ReportControllers.AgentSummary)
+// router.post("/Report/AgentProgress",ReportControllers.AgentProgress)
+router.post("/Report/leadSourceSummary",ReportControllers.leadSourceSummary)
+router.post("/Report/SiteDistribution",ReportControllers.siteDistribution)
+// router.post("/Report/WeeklyLeadVelocity",ReportControllers.WeeklyLeadVelocity)
+router.post("/Report/getAllAvailablePlots",ReportControllers.getAllAvailablePlots)
+router.post("/Report/getCallSummary",ReportControllers.getCallSummary)
+router.post("/Report/getLeadReports",ReportControllers.getLeadReports)
+router.post("/Report/getVisitorReports",ReportControllers.getVisitorReports)
+
 module.exports = router;
