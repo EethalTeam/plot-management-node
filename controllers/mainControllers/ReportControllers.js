@@ -485,29 +485,58 @@ exports.WeeklyLeadVelocity = async (req, res) => {
 };
 
 
- exports.getAllAvailablePlots = async (req, res) => {
+//  exports.getAllAvailablePlots = async (req, res) => {
+//   try {
+//     const { unitId, siteId } = req.body;
+
+//     // 1️ Get "Available" status ID
+//     const availableStatus = await Status.findOne({
+//       statusName: "Available"
+//     }).select("_id");
+
+//     if (!availableStatus) {
+//       return res.json({ success: true, data: [] });
+//     }
+
+//     // 2️ Build filter
+//     let filter = {
+//       statusId: availableStatus._id,
+//       isActive: true
+//     };
+
+//     if (unitId) filter.unitId = unitId;
+//     if (siteId) filter.siteId = siteId;
+
+//     // 3️ Fetch plots
+//     const plots = await Plot.find(filter)
+//       .populate("siteId", "sitename location")
+//       .populate("unitId", "UnitName UnitCode")
+//       .populate("statusId", "statusName colorCode")
+//       .collation({ locale: "en", numericOrdering: true })
+//       .sort({ plotNumber: 1 });
+
+//     res.status(200).json({
+//       success: true,
+//       data: plots
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message
+//     });
+//   }
+// };
+
+exports.getAllAvailablePlots = async (req, res) => {
   try {
     const { unitId, siteId } = req.body;
 
-    // 1️ Get "Available" status ID
-    const availableStatus = await Status.findOne({
-      statusName: "Available"
-    }).select("_id");
-
-    if (!availableStatus) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 2️ Build filter
-    let filter = {
-      statusId: availableStatus._id,
-      isActive: true
-    };
+    let filter = { isActive: true };
 
     if (unitId) filter.unitId = unitId;
     if (siteId) filter.siteId = siteId;
 
-    // 3️ Fetch plots
     const plots = await Plot.find(filter)
       .populate("siteId", "sitename location")
       .populate("unitId", "UnitName UnitCode")
@@ -529,39 +558,109 @@ exports.WeeklyLeadVelocity = async (req, res) => {
 };
 
 
+// exports.getCallSummary = async (req, res) => {
+//   try {
+//     const { fromDate, toDate ,SiteId,EmployeeId} = req.body;
+
+//     let match = {};
+
+//     // DATE FILTER
+//     if (fromDate && toDate) {
+//       match.callDate = {
+//         $gte: new Date(fromDate),
+//         $lte: new Date(toDate)
+//       };
+//     }
+
+//      if (SiteId && mongoose.Types.ObjectId.isValid(SiteId)) {
+//       match.SiteId = new mongoose.Types.ObjectId(SiteId);
+//     }
+
+//     //  EMPLOYEE FILTER (apply only if selected) 
+//     if (
+//       EmployeeId &&
+//       EmployeeId !== "All Agents" &&
+//       mongoose.Types.ObjectId.isValid(EmployeeId)
+//     ) {
+//       match.EmployeeId = new mongoose.Types.ObjectId(EmployeeId);
+//       //  change field name if schema uses something else
+//     }
+
+//     // console.log(match,"matchcheck")
+
+//     // AGGREGATION
+//     const summary = await TelecmiLog.aggregate([
+//       { $match: match },
+//       {
+//         $group: {
+//           _id: null,
+
+//           totalCalls: { $sum: 1 },
+
+//           answeredCalls: {
+//             $sum: {
+//               $cond: [{ $gt: ["$answeredsec", 0] }, 1, 0]
+//             }
+//           },
+
+//           missedCalls: {
+//             $sum: {
+//               $cond: [{ $eq: ["$answeredsec", 0] }, 1, 0]
+//             }
+//           }
+//         }
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           totalCalls: 1,
+//           answeredCalls: 1,
+//           missedCalls: 1
+//         }
+//       }
+//     ]);
+
+//     return res.status(200).json({
+//       success: true,
+//       data: summary[0] || {
+//         totalCalls: 0,
+//         answeredCalls: 0,
+//         missedCalls: 0
+//       }
+//     });
+
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message
+//     });
+//   }
+// };
+
+
+
+
 exports.getCallSummary = async (req, res) => {
   try {
-    const { fromDate, toDate ,SiteId,EmployeeId} = req.body;
+     const {  EmployeeId,fromDate, toDate } = req.body;
 
-    let match = {};
-
-    // DATE FILTER
-    if (fromDate && toDate) {
-      match.callDate = {
-        $gte: new Date(fromDate),
-        $lte: new Date(toDate)
-      };
+        let matchStage = {};
+         if (EmployeeId) {
+      const emp = await Employee.findById(EmployeeId).select("TelecmiID");
+      if (emp?.TelecmiID) {
+        matchStage.user = emp.TelecmiID; //  THIS IS THE KEY
+      }
     }
 
-     if (SiteId && mongoose.Types.ObjectId.isValid(SiteId)) {
-      match.SiteId = new mongoose.Types.ObjectId(SiteId);
-    }
+        if (fromDate || toDate) {
+            matchStage.createdAt = {};
+            if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+            if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+        }
 
-    //  EMPLOYEE FILTER (apply only if selected) 
-    if (
-      EmployeeId &&
-      EmployeeId !== "All Agents" &&
-      mongoose.Types.ObjectId.isValid(EmployeeId)
-    ) {
-      match.EmployeeId = new mongoose.Types.ObjectId(EmployeeId);
-      //  change field name if schema uses something else
-    }
-
-    // console.log(match,"matchcheck")
-
-    // AGGREGATION
     const summary = await TelecmiLog.aggregate([
-      { $match: match },
+      { $match: matchStage },
+
       {
         $group: {
           _id: null,
@@ -570,38 +669,60 @@ exports.getCallSummary = async (req, res) => {
 
           answeredCalls: {
             $sum: {
-              $cond: [{ $gt: ["$answeredsec", 0] }, 1, 0]
+              $cond: [{ $eq: ["$status", "answered"] }, 1, 0]
             }
           },
 
           missedCalls: {
             $sum: {
-              $cond: [{ $eq: ["$answeredsec", 0] }, 1, 0]
+              $cond: [{ $eq: ["$status", "missed"] }, 1, 0]
+            }
+          },
+
+          avgAnsweredDuration: {
+            $avg: {
+              $cond: [
+                { $eq: ["$status", "answered"] },
+                "$answeredsec",
+                null
+              ]
+            }
+          },
+
+          avgMissedWaitTime: {
+            $avg: {
+              $cond: [
+                { $eq: ["$status", "missed"] },
+                "$waitedsec",
+                null
+              ]
             }
           }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          totalCalls: 1,
-          answeredCalls: 1,
-          missedCalls: 1
         }
       }
     ]);
 
-    return res.status(200).json({
+    const data = summary[0] || {
+      totalCalls: 0,
+      answeredCalls: 0,
+      missedCalls: 0,
+      avgAnsweredDuration: 0,
+      avgMissedWaitTime: 0
+    };
+
+    res.status(200).json({
       success: true,
-      data: summary[0] || {
-        totalCalls: 0,
-        answeredCalls: 0,
-        missedCalls: 0
+      data: {
+        totalCalls: data.totalCalls,
+        answeredCalls: data.answeredCalls,
+        missedCalls: data.missedCalls,
+        avgAnsweredDuration: Math.round(data.avgAnsweredDuration || 0),
+        avgMissedWaitTime: Math.round(data.avgMissedWaitTime || 0)
       }
     });
 
   } catch (error) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error.message
     });
@@ -655,6 +776,9 @@ exports.getLeadReports = async (req, res) => {
                                 },
                                 siteVisitCount: {
                                     $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Site Visit"] }, 1, 0] }
+                                },
+                                 newCount: {
+                                    $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "New"] }, 1, 0] }
                                 }
                             }
                         }
@@ -699,7 +823,7 @@ exports.getLeadReports = async (req, res) => {
         ]);
 
         const reportData = reports[0];
-        const counters = reportData.counters[0] || { totalLeads: 0, followUpCount: 0, siteVisitCount: 0 };
+        const counters = reportData.counters[0] || { totalLeads: 0, followUpCount: 0, siteVisitCount: 0 ,newCount:0};
         
         // Calculate Conversion Rate (Site Visits / Total Leads)
         const conversionRate = counters.totalLeads > 0 
@@ -712,6 +836,7 @@ exports.getLeadReports = async (req, res) => {
                 totalLeads: counters.totalLeads,
                 followUpCount: counters.followUpCount,
                 siteVisitCount: counters.siteVisitCount,
+                newCount: counters.newCount,
                 conversionRate: conversionRate
             },
             topSources: reportData.topSources,
@@ -782,7 +907,7 @@ exports.getVisitorReports = async (req, res) => {
                         { $unwind: { path: "$emp", preserveNullAndEmptyArrays: true } },
                         {
                             $group: {
-                                _id: { $concat: ["$emp.empFirstName", " ", "$emp.empLastName"] },
+                                _id: { $concat: ["$emp.EmployeeName"]  },
                                 totalAssigned: { $sum: 1 },
                                 completed: {
                                     $sum: {
