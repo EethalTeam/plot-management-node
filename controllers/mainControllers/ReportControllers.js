@@ -4,7 +4,7 @@ const Employee = require('../../models/masterModels/Employee')
 const LeadSource = require('../../models/masterModels/LeadSource')
 const Site = require('../../models/masterModels/Site')
 const Visitor = require('../../models/masterModels/Visitor')
-const Plot  = require('../../models/masterModels/Plot')
+const Plot = require('../../models/masterModels/Plot')
 const Status = require("../../models/masterModels/Status");
 const TelecmiLog = require("../../models/masterModels/TeleCMICallLog");
 
@@ -139,25 +139,25 @@ exports.getAllReport = async (req, res) => {
     // });
 
     // 1️ Get "Available" status ID
-const availableStatus = await Status.findOne({
-  statusName: "Available"
-}).select("_id");
+    const availableStatus = await Status.findOne({
+      statusName: "Available"
+    }).select("_id");
 
-// 2️ Build plot filter
-let plotFilter = {
-  isActive: true
-};
+    // 2️ Build plot filter
+    let plotFilter = {
+      isActive: true
+    };
 
-if (availableStatus) {
-  plotFilter.statusId = availableStatus._id;
-}
+    if (availableStatus) {
+      plotFilter.statusId = availableStatus._id;
+    }
 
-if (match.siteId) {
-  plotFilter.siteId = match.siteId;
-}
+    if (match.siteId) {
+      plotFilter.siteId = match.siteId;
+    }
 
-// 3️ Count available plots
-const plotAvailableCount = await Plot.countDocuments(plotFilter);
+    // 3️ Count available plots
+    const plotAvailableCount = await Plot.countDocuments(plotFilter);
 
     res.status(200).json({
       success: true,
@@ -343,13 +343,13 @@ exports.AgentProgress = async (req, res) => {
 
 exports.leadSourceSummary = async (req, res) => {
   try {
-     const { fromDate, toDate } = req.body;
+    const { fromDate, toDate } = req.body;
     // const dateFilter = getDateFilter(fromDate, toDate);
- const match = buildReportMatch(req.body);
-// console.log(match,"match")
+    const match = buildReportMatch(req.body);
+    // console.log(match,"match")
 
     const data = await Lead.aggregate([
-        { $match: match },
+      { $match: match },
       {
         $group: {
           _id: "$leadSourceId",
@@ -394,10 +394,10 @@ exports.siteDistribution = async (req, res) => {
     //  const { fromDate, toDate } = req.body;
     // const dateFilter = getDateFilter(fromDate, toDate);
 
-     const match = buildReportMatch(req.body);
-console.log(match,"match")
+    const match = buildReportMatch(req.body);
+    console.log(match, "match")
     const data = await Lead.aggregate([
-        { $match: match },
+      { $match: match },
       {
         $group: {
           _id: "$leadSiteId",
@@ -642,21 +642,21 @@ exports.getAllAvailablePlots = async (req, res) => {
 
 exports.getCallSummary = async (req, res) => {
   try {
-     const {  EmployeeId,fromDate, toDate } = req.body;
+    const { EmployeeId, fromDate, toDate } = req.body;
 
-        let matchStage = {};
-         if (EmployeeId) {
+    let matchStage = {};
+    if (EmployeeId) {
       const emp = await Employee.findById(EmployeeId).select("TelecmiID");
       if (emp?.TelecmiID) {
         matchStage.user = emp.TelecmiID; //  THIS IS THE KEY
       }
     }
 
-        if (fromDate || toDate) {
-            matchStage.createdAt = {};
-            if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-            if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
-        }
+    if (fromDate || toDate) {
+      matchStage.createdAt = {};
+      if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+      if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    }
 
     const summary = await TelecmiLog.aggregate([
       { $match: matchStage },
@@ -731,214 +731,253 @@ exports.getCallSummary = async (req, res) => {
 
 
 exports.getLeadReports = async (req, res) => {
-    try {
-        const { siteId, EmployeeId, fromDate, toDate } = req.body;
+  try {
+    const { siteId, EmployeeId, fromDate, toDate } = req.body;
 
-        let matchStage = {};
-        if (siteId) matchStage.leadSiteId = new mongoose.Types.ObjectId(siteId);
-        if (EmployeeId) {
-            matchStage.$or = [
-                { leadAssignedId: new mongoose.Types.ObjectId(EmployeeId) },
-                { leadCreatedById: new mongoose.Types.ObjectId(EmployeeId) }
-            ];
-        }
-
-        if (fromDate || toDate) {
-            matchStage.createdAt = {};
-            if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-            if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
-        }
-
-        const reports = await Lead.aggregate([
-            { $match: matchStage },
-
-            // Lookups for Names
-            { $lookup: { from: 'leadstatuses', localField: 'leadStatusId', foreignField: '_id', as: 'statusDoc' } },
-            { $lookup: { from: 'leadsources', localField: 'leadSourceId', foreignField: '_id', as: 'sourceDoc' } },
-            { $lookup: { from: 'sites', localField: 'leadSiteId', foreignField: '_id', as: 'siteDoc' } },
-            { $lookup: { from: 'employees', localField: 'leadAssignedId', foreignField: '_id', as: 'agentDoc' } },
-
-            { $unwind: { path: '$statusDoc', preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: '$sourceDoc', preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: '$siteDoc', preserveNullAndEmptyArrays: true } },
-            { $unwind: { path: '$agentDoc', preserveNullAndEmptyArrays: true } },
-
-            {
-                $facet: {
-                    // Summary Metrics including Follow Up and Site Visit counts
-                    "counters": [
-                        {
-                            $group: {
-                                _id: null,
-                                totalLeads: { $sum: 1 },
-                                followUpCount: {
-                                    $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Follow Up"] }, 1, 0] }
-                                },
-                                siteVisitCount: {
-                                    $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Site Visit"] }, 1, 0] }
-                                },
-                                 newCount: {
-                                    $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "New"] }, 1, 0] }
-                                }
-                            }
-                        }
-                    ],
-
-                    "topSources": [
-                        { $group: { _id: "$sourceDoc.leadSourceName", count: { $sum: 1 } } },
-                        { $sort: { count: -1 } }
-                    ],
-
-                    "topSites": [
-                        { $group: { _id: "$siteDoc.sitename", count: { $sum: 1 } } },
-                        { $sort: { count: -1 } }
-                    ],
-
-                    "agentPerformance": [
-                        {
-                            $group: {
-                                _id: { 
-                                    name: { $concat: ["$agentDoc.EmployeeName"] } 
-                                },
-                                totalAssigned: { $sum: 1 },
-                                agentSiteVisits: {
-                                    $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Site Visit"] }, 1, 0] }
-                                }
-                            }
-                        },
-                        { $project: { _id: 0, agentName: "$_id.name", totalAssigned: 1, agentSiteVisits: 1 } }
-                    ],
-
-                    "weeklyVelocity": [
-                        {
-                            $group: {
-                                _id: { $week: "$createdAt" },
-                                count: { $sum: 1 }
-                            }
-                        },
-                        { $sort: { "_id": 1 } }
-                    ]
-                }
-            }
-        ]);
-
-        const reportData = reports[0];
-        const counters = reportData.counters[0] || { totalLeads: 0, followUpCount: 0, siteVisitCount: 0 ,newCount:0};
-        
-        // Calculate Conversion Rate (Site Visits / Total Leads)
-        const conversionRate = counters.totalLeads > 0 
-            ? ((counters.siteVisitCount / counters.totalLeads) * 100).toFixed(2) + "%" 
-            : "0%";
-
-        res.status(200).json({
-            success: true,
-            summary: {
-                totalLeads: counters.totalLeads,
-                followUpCount: counters.followUpCount,
-                siteVisitCount: counters.siteVisitCount,
-                newCount: counters.newCount,
-                conversionRate: conversionRate
-            },
-            topSources: reportData.topSources,
-            topSites: reportData.topSites,
-            agentPerformance: reportData.agentPerformance,
-            weeklyVelocity: reportData.weeklyVelocity
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    let matchStage = {};
+    if (siteId) matchStage.leadSiteId = new mongoose.Types.ObjectId(siteId);
+    if (EmployeeId) {
+      matchStage.$or = [
+        { leadAssignedId: new mongoose.Types.ObjectId(EmployeeId) },
+        { leadCreatedById: new mongoose.Types.ObjectId(EmployeeId) }
+      ];
     }
+
+    if (fromDate || toDate) {
+      matchStage.createdAt = {};
+      if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+      if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    }
+
+    const reports = await Lead.aggregate([
+      { $match: matchStage },
+
+      // Lookups for Names
+      { $lookup: { from: 'leadstatuses', localField: 'leadStatusId', foreignField: '_id', as: 'statusDoc' } },
+      { $lookup: { from: 'leadsources', localField: 'leadSourceId', foreignField: '_id', as: 'sourceDoc' } },
+      { $lookup: { from: 'sites', localField: 'leadSiteId', foreignField: '_id', as: 'siteDoc' } },
+      { $lookup: { from: 'employees', localField: 'leadAssignedId', foreignField: '_id', as: 'agentDoc' } },
+
+      { $unwind: { path: '$statusDoc', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$sourceDoc', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$siteDoc', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$agentDoc', preserveNullAndEmptyArrays: true } },
+
+      {
+        $facet: {
+          // Summary Metrics including Follow Up and Site Visit counts
+          "counters": [
+            {
+              $group: {
+                _id: null,
+                totalLeads: { $sum: 1 },
+                followUpCount: {
+                  $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Follow Up"] }, 1, 0] }
+                },
+                siteVisitCount: {
+                  $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Site Visit"] }, 1, 0] }
+                },
+                newCount: {
+                  $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "New"] }, 1, 0] }
+                }
+              }
+            }
+          ],
+
+          "topSources": [
+            { $group: { _id: "$sourceDoc.leadSourceName", count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+
+          "topSites": [
+            { $group: { _id: "$siteDoc.sitename", count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+
+          "agentPerformance": [
+            {
+              $group: {
+                _id: {
+                  name: { $concat: ["$agentDoc.EmployeeName"] }
+                },
+                totalAssigned: { $sum: 1 },
+                agentSiteVisits: {
+                  $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Site Visit"] }, 1, 0] }
+                }
+              }
+            },
+            { $project: { _id: 0, agentName: "$_id.name", totalAssigned: 1, agentSiteVisits: 1 } }
+          ],
+
+          // "weeklyVelocity": [
+          //   {
+          //     $group: {
+          //       _id: { $week: "$createdAt" },
+          //       count: { $sum: 1 }
+          //     }
+          //   },
+          //   { $sort: { "_id": 1 } }
+          // ],
+
+          "weeklyVelocity": [
+  {
+    // Step 1: group by week + source
+    $group: {
+      _id: {
+        week: { $week: "$createdAt" },
+        source: "$sourceDoc.leadSourceName"
+      },
+      count: { $sum: 1 }
+    }
+  },
+  {
+    // Step 2: sort so top source comes first
+    $sort: { count: -1 }
+  },
+  {
+    // Step 3: group again by week
+    $group: {
+      _id: "$_id.week",
+      totalLeads: { $sum: "$count" },          // total leads in that week
+      topSource: { $first: "$_id.source" },    // highest source
+      topSourceCount: { $first: "$count" }     // its count
+    }
+  },
+  {
+    // Step 4: clean output
+    $project: {
+      _id: 0,
+      week: "$_id",
+      totalLeads: 1,
+      topSource: 1,
+      topSourceCount: 1
+    }
+  },
+  { $sort: { week: 1 } }
+]
+
+
+        }
+      }
+    ]);
+
+    const reportData = reports[0];
+    const counters = reportData.counters[0] || { totalLeads: 0, followUpCount: 0, siteVisitCount: 0, newCount: 0 };
+
+    // Calculate Conversion Rate (Site Visits / Total Leads)
+    const conversionRate = counters.totalLeads > 0
+      ? ((counters.siteVisitCount / counters.totalLeads) * 100).toFixed(2) + "%"
+      : "0%";
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        totalLeads: counters.totalLeads,
+        followUpCount: counters.followUpCount,
+        siteVisitCount: counters.siteVisitCount,
+        newCount: counters.newCount,
+        conversionRate: conversionRate
+      },
+      topSources: reportData.topSources,
+      topSites: reportData.topSites,
+      agentPerformance: reportData.agentPerformance,
+      weeklyVelocity: reportData.weeklyVelocity
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 
 exports.getVisitorReports = async (req, res) => {
-    try {
-        const { siteId, EmployeeId, fromDate, toDate } = req.body;
+  try {
+    const { siteId, EmployeeId, fromDate, toDate } = req.body;
 
-        let matchStage = {};
+    let matchStage = {};
 
-        // 1. Filter by Employee
-        if (EmployeeId) {
-            matchStage.employeeId = new mongoose.Types.ObjectId(EmployeeId);
-        }
-
-        // 2. Filter by Site/Plot (Assuming siteId relates to the plots array)
-        if (siteId) {
-            matchStage["plots.plotId"] = new mongoose.Types.ObjectId(siteId);
-        }
-
-        // 3. Filter by Date Range (createdAt)
-        if (fromDate || toDate) {
-            matchStage.createdAt = {};
-            if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-            if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
-        }
-
-        const stats = await Visitor.aggregate([
-            { $match: matchStage },
-            {
-                $facet: {
-                    "totalVisitors": [{ $count: "count" }],
-                    
-                    // Filter visitors who have "Visit Completed" in their followUps array
-                    "completedVisits": [
-                        { 
-                            $match: { 
-                                "followUps.followUpStatus": "Visit Completed" 
-                            } 
-                        },
-                        { $count: "count" }
-                    ],
-
-                    // Visit Status Breakdown (To see both Completed and Not Yet)
-                    "statusBreakdown": [
-                        { $unwind: "$followUps" },
-                        {
-                            $group: {
-                                _id: "$followUps.followUpStatus",
-                                count: { $sum: 1 }
-                            }
-                        }
-                    ],
-
-                    // Agent-wise Visit Performance
-                    "agentVisitStats": [
-                        { $lookup: { from: 'employees', localField: 'employeeId', foreignField: '_id', as: 'emp' } },
-                        { $unwind: { path: "$emp", preserveNullAndEmptyArrays: true } },
-                        {
-                            $group: {
-                                _id: { $concat: ["$emp.EmployeeName"]  },
-                                totalAssigned: { $sum: 1 },
-                                completed: {
-                                    $sum: {
-                                        $cond: [{ $in: ["Visit Completed", "$followUps.followUpStatus"] }, 1, 0]
-                                    }
-                                }
-                            }
-                        },
-                        { $project: { agentName: "$_id", totalAssigned: 1, completed: 1, _id: 0 } }
-                    ]
-                }
-            }
-        ]);
-
-        const result = stats[0];
-        const total = result.totalVisitors[0]?.count || 0;
-        const completed = result.completedVisits[0]?.count || 0;
-
-        res.status(200).json({
-            success: true,
-            summary: {
-                totalVisitors: total,
-                visitCompletedCount: completed,
-                visitPendingCount: total - completed,
-                completionRate: total > 0 ? ((completed / total) * 100).toFixed(2) + "%" : "0%"
-            },
-            agentPerformance: result.agentVisitStats,
-            detailedBreakdown: result.statusBreakdown
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    // 1. Filter by Employee
+    if (EmployeeId) {
+      matchStage.employeeId = new mongoose.Types.ObjectId(EmployeeId);
     }
+
+    // 2. Filter by Site/Plot (Assuming siteId relates to the plots array)
+    if (siteId) {
+      matchStage["plots.plotId"] = new mongoose.Types.ObjectId(siteId);
+    }
+
+    // 3. Filter by Date Range (createdAt)
+    if (fromDate || toDate) {
+      matchStage.createdAt = {};
+      if (fromDate) matchStage.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+      if (toDate) matchStage.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    }
+
+    const stats = await Visitor.aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          "totalVisitors": [{ $count: "count" }],
+
+          // Filter visitors who have "Visit Completed" in their followUps array
+          "completedVisits": [
+            {
+              $match: {
+                "followUps.followUpStatus": "Visit Completed"
+              }
+            },
+            { $count: "count" }
+          ],
+
+          // Visit Status Breakdown (To see both Completed and Not Yet)
+          "statusBreakdown": [
+            { $unwind: "$followUps" },
+            {
+              $group: {
+                _id: "$followUps.followUpStatus",
+                count: { $sum: 1 }
+              }
+            }
+          ],
+
+          // Agent-wise Visit Performance
+          "agentVisitStats": [
+            { $lookup: { from: 'employees', localField: 'employeeId', foreignField: '_id', as: 'emp' } },
+            { $unwind: { path: "$emp", preserveNullAndEmptyArrays: true } },
+            {
+              $group: {
+                _id: { $concat: ["$emp.EmployeeName"] },
+                totalAssigned: { $sum: 1 },
+                completed: {
+                  $sum: {
+                    $cond: [{ $in: ["Visit Completed", "$followUps.followUpStatus"] }, 1, 0]
+                  }
+                }
+              }
+            },
+            { $project: { agentName: "$_id", totalAssigned: 1, completed: 1, _id: 0 } }
+          ]
+        }
+      }
+    ]);
+
+    const result = stats[0];
+    const total = result.totalVisitors[0]?.count || 0;
+    const completed = result.completedVisits[0]?.count || 0;
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        totalVisitors: total,
+        visitCompletedCount: completed,
+        visitPendingCount: total - completed,
+        completionRate: total > 0 ? ((completed / total) * 100).toFixed(2) + "%" : "0%"
+      },
+      agentPerformance: result.agentVisitStats,
+      detailedBreakdown: result.statusBreakdown
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
