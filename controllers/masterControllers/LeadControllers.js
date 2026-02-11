@@ -12,10 +12,10 @@ const e = require('cors');
 
 const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
 
-exports.createLead = async (req, res) => {
+ exports.createLead = async (req, res) => {
   const {
     leadUnitId, leadCreatedById, leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
-    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes, leadDescription,
+    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes, leadDescription,SiteVisitDate,FollowDate,
     leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags, leadSiteId, documentIds, leadAltPhone
   } = req.body;
 
@@ -77,6 +77,8 @@ exports.createLead = async (req, res) => {
       leadAltPhone,
       leadPotentialValue,
       leadScore,
+      SiteVisitDate,
+      FollowDate,
       leadSiteId,
       leadNotes,
       leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
@@ -544,6 +546,8 @@ exports.deleteLead = async (req, res) => {
   try {
     const { leadId, deletedStatusId } = req.body; // Pass the ID of the 'Deleted' status
 
+    console.log(leadId, deletedStatusId,"req.body delete")
+
     if (!leadId || !deletedStatusId) {
       return res.status(400).json({ success: false, message: 'Lead ID and Deleted Status ID are required' });
     }
@@ -577,6 +581,29 @@ exports.deleteLead = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
+// option 2 for delete lead 
+// exports.deleteLead = async (req, res) => {
+//     try {
+//         const { _id } = req.body;
+        
+//         if (!mongoose.Types.ObjectId.isValid(_id)) {
+//             return res.status(400).json({ message: 'Invalid ID' });
+//         }
+        
+//         const leads = await Lead.findByIdAndDelete(_id);
+
+//         if (!leads) {
+//             return res.status(400).json({ message: 'Lead not found' });
+//         }
+
+//         res.status(200).json({ message: 'Lead deleted successfully' });
+//     } catch (error) {
+//         res.status(500).json({ message: error.message });
+//     }
+// };
 
 exports.addLeadDocument = async (req, res) => {
   const { leadId, documentId, employeeName, leadFile } = req.body;
