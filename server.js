@@ -190,7 +190,7 @@ const createNotification = async ({
 // MongoDB Connection
 async function main() {
   try {
-    await mongoose.connect('mongodb+srv://restore_admin:enisrestore123@enistechteam.owwtldg.mongodb.net/plot-management?retryWrites=true&w=majority&appName=PlotManagement', {
+    await mongoose.connect('mongodb+srv://restore_admin:enisdevteam123@enistechteam.owwtldg.mongodb.net/plot-management?retryWrites=true&w=majority&appName=PlotManagement', {
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
       connectTimeoutMS: 30000
