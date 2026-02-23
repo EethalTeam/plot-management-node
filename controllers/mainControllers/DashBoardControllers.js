@@ -2,116 +2,85 @@ const mongoose = require("mongoose");
 const Lead = require("../../models/masterModels/Leads");
 const Visitor = require('../../models/masterModels/Visitor')
 const Callog = require("../../models/masterModels/TeleCMICallLog");
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+dayjs.extend(utc);
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(timezone);
 
-// exports.getAllDashBoard = async (req, res) => {
-//   try {
-//     const { role, TelecmiID,EmployeeID } = req.body;
-
-//     const startOfToday = new Date();
-//     startOfToday.setHours(0, 0, 0, 0);
-
-//     const endOfToday = new Date();
-//     endOfToday.setHours(23, 59, 59, 999);
-
-//     // ---------- CALL FILTER ----------
-//     const callMatch = {
-//       answeredsec: { $gt: 0 },
-//       callDate: { $gte: startOfToday, $lte: endOfToday },
-//     };
-     
-//   const leads= {}
-
-//   if(role === "AGENT"){
-//     leads.$or = [
-//             { leadCreatedById: new mongoose.Types.ObjectId(EmployeeID) },
-//             { leadAssignedId: new mongoose.Types.ObjectId(EmployeeID) }
-//           ]
-//   }
-
-//     if (role === "AGENT") {
-//       if (!TelecmiID) return res.status(200).json({ lead: 0, callog: 0 });
-//       callMatch.user = TelecmiID;
-//     }
-// console.log(callMatch,"callMatch")
-//     const [leadCount, callCount] = await Promise.all([
-//       Lead.countDocuments(leads),
-//       Callog.countDocuments(callMatch),
-//     ]);
-
-//     res.status(200).json({
-//       lead: leadCount,
-//       callog: callCount,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-
+ 
+ 
 exports.getAllDashBoard = async (req, res) => {
   try {
     const { role, TelecmiID, EmployeeID, fromDate, toDate } = req.body;
+    const indiaTz = "Asia/Kolkata";
 
-    // -------------------------
-    // DATE RANGE (FROM FRONTEND)
-    // -------------------------
-    const start = fromDate ? new Date(fromDate) : new Date();
-    const end = toDate ? new Date(toDate) : new Date();
+    const start = fromDate 
+      ? dayjs.tz(fromDate, indiaTz).startOf('day').toDate() 
+      : dayjs().tz(indiaTz).startOf('day').toDate();
 
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
+    const end = toDate 
+      ? dayjs.tz(toDate, indiaTz).endOf('day').toDate() 
+      : dayjs().tz(indiaTz).endOf('day').toDate();
 
-    // -------------------------
-    // CALL FILTER
-    // -------------------------
     const callMatch = {
       answeredsec: { $gt: 0 },
       callDate: { $gte: start, $lte: end },
     };
 
-
     if (role === "AGENT") {
-      if (!TelecmiID) {
-        return res.status(200).json({ lead: 0, callog: 0 });
-      }
+      if (!TelecmiID) return res.status(200).json({ lead: 0, callog: 0, calls: [] });
       callMatch.user = TelecmiID;
     }
 
-    // -------------------------
-    // LEAD FILTER
-    // -------------------------
-   const leadMatch = {
-  createdAt: { $gte: start, $lte: end },
-};
+    const leadMatch = {
+      createdAt: { $gte: start, $lte: end },
+    };
 
     if (role === "AGENT" && EmployeeID) {
+      const empObjectId = new mongoose.Types.ObjectId(EmployeeID);
       leadMatch.$or = [
-        { leadCreatedById: new mongoose.Types.ObjectId(EmployeeID) },
-        { leadAssignedId: new mongoose.Types.ObjectId(EmployeeID) },
+        { leadCreatedById: empObjectId },
+        { leadAssignedId: empObjectId },
       ];
     }
 
-    // -------------------------
-    // PARALLEL COUNTS
-    // -------------------------
-    const [leadCount, callCount] = await Promise.all([
-      Lead.countDocuments(leadMatch),
-      Callog.countDocuments(callMatch),
+    const [leadCount, callCount, callDetails] = await Promise.all([
+      mongoose.model('Lead').countDocuments(leadMatch),
+      mongoose.model('TelecmiLog').countDocuments(callMatch),
+      mongoose.model('TelecmiLog')
+        .find(callMatch)
+        .select('callDate user answeredsec')
+        .sort({ callDate: -1 })
     ]);
 
-    // -------------------------
-    // RESPONSE
-    // -------------------------
+    const formattedCalls = callDetails.map(call => ({
+      ...call._doc,
+      timeIST: dayjs(call.callDate).tz(indiaTz).format('YYYY-MM-DD hh:mm:ss A')
+    }));
+
     res.status(200).json({
       lead: leadCount,
       callog: callCount,
+      calls: formattedCalls,
+      debug: {
+        message: "Range strictly locked to IST Midnight-to-Midnight.",
+        queryRangeIST: {
+          start: dayjs(start).tz(indiaTz).format('YYYY-MM-DD hh:mm:ss A'),
+          end: dayjs(end).tz(indiaTz).format('YYYY-MM-DD hh:mm:ss A')
+        },
+        queryRangeUTC: {
+          start: start.toISOString(),
+          end: end.toISOString()
+        }
+      }
     });
+
   } catch (error) {
     console.error("Dashboard Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
-
 
 
 exports.getDayWiseAnsweredCalls = async (req, res) => {
