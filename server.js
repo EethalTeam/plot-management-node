@@ -1,3 +1,4 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const express = require('express');
 const cors = require('cors');
@@ -24,7 +25,6 @@ app.use(cors({
     origin: ["http://localhost:3000","https://enisivr.grss.in","http://localhost:5173"], 
     credentials: true
 }));
-require('dotenv').config();
 
 app.post('/api/importLeadsExcel', upload.single('file'), LeadController.importLeads);
 

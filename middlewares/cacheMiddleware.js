@@ -43,7 +43,10 @@ const cacheMiddleware = (ttlInSeconds = 36000, cacheKeyOverride = null) => {
 
       console.log(`CACHE MISS for key: ${cacheKey}. Proceeding to DB.`);
     } catch (redisError) {
-      console.error(`Memurai cache read failed for ${cacheKey}:`, redisError.message);
+      console.error(
+        `Redis cache read failed for ${cacheKey}:`,
+        redisError.message,
+      );
     }
 
     const originalJson = res.json;
@@ -55,7 +58,10 @@ const cacheMiddleware = (ttlInSeconds = 36000, cacheKeyOverride = null) => {
         redisClient
           .set(cacheKey, JSON.stringify(body), { EX: ttlInSeconds })
           .catch((error) => {
-            console.error(`Memurai cache write failed for ${cacheKey}:`, error.message);
+            console.error(
+              `Redis cache write failed for ${cacheKey}:`,
+              error.message,
+            );
           });
       }
 
@@ -77,11 +83,16 @@ cacheMiddleware.invalidate = (keys = []) => {
         const exactKeys = keys.filter((key) => !key.includes("*"));
         const patternKeys = keys.filter((key) => key.includes("*"));
 
-        const deleteExactKeys = exactKeys.length > 0 ? redisClient.del(...exactKeys) : Promise.resolve();
-        const deletePatternKeys = Promise.all(patternKeys.map((key) => redisClient.delPattern(key)));
+        const deleteExactKeys =
+          exactKeys.length > 0
+            ? redisClient.del(...exactKeys)
+            : Promise.resolve();
+        const deletePatternKeys = Promise.all(
+          patternKeys.map((key) => redisClient.delPattern(key)),
+        );
 
         Promise.all([deleteExactKeys, deletePatternKeys]).catch((error) => {
-          console.error("Memurai cache invalidation failed:", error.message);
+          console.error("Redis cache invalidation failed:", error.message);
         });
       }
 
