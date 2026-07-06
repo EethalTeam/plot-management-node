@@ -23,3 +23,7 @@ Thumbs.db
 
 # Optional: coverage from tests
 coverage/
+
+# Backup feature
+/backups/
+google-service-account.json

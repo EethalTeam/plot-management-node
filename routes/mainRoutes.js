@@ -10,6 +10,7 @@ const LeadControllers = require("../controllers/masterControllers/LeadController
 const DashboardControllers = require("../controllers/mainControllers/DashBoardControllers");
 const upload = require("../utils/upload");
 const ReportControllers = require('../controllers/mainControllers/ReportControllers')
+const BackupControllers = require('../controllers/mainControllers/BackupControllers')
 
 router.post("/Log/getAllLogs", LogControllers.getAllLogs);
 router.post("/Log/getFilteredLogs", LogControllers.getFilteredLogs);
@@ -133,5 +134,10 @@ router.post("/Report/getAllAvailablePlots",ReportControllers.getAllAvailablePlot
 router.post("/Report/getCallSummary",ReportControllers.getCallSummary)
 router.post("/Report/getLeadReports",ReportControllers.getLeadReports)
 router.post("/Report/getVisitorReports",ReportControllers.getVisitorReports)
+
+//BackupControllers
+router.post("/Backup/runBackup", BackupControllers.runBackup)
+router.post("/Backup/listBackups", BackupControllers.listBackups)
+router.post("/Backup/restoreBackup", BackupControllers.restoreBackup)
 
 module.exports = router;
