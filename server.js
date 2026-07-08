@@ -14,6 +14,7 @@ const Notification = require('./models/masterModels/Notification');
 const CallLogController=require('./controllers/masterControllers/callLogControllers')
 const LeadController = require('./controllers/masterControllers/LeadControllers')
 const IvrController = require('./controllers/masterControllers/ivrController')
+const { ensureIvrLogsTable } = require('./utils/supabaseClient')
 const upload = multer({ dest: 'uploads/' });
 
 const app = express();
@@ -204,6 +205,8 @@ async function main() {
     const dbName = mongoose.connection.db.databaseName;
     const collections = await mongoose.connection.db.listCollections().toArray();
     console.log(`📦 Collections in database: ${dbName}`, collections.map(col => col.name));
+
+    await ensureIvrLogsTable();
 
     server.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
