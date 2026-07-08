@@ -1,72 +1,44 @@
 const mongoose = require('mongoose');
 
 const CalledAgentSchema = new mongoose.Schema({
-    agentName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    agentNumber: {
-        type: String,
-        required: true,
-        trim: true
-    }
-}, { _id: false }); // Prevents creating unnecessary nested IDs
+    agentName: { type: String, required: true, trim: true },
+    agentNumber: { type: String, required: true, trim: true }
+}, { _id: false });
 
 const IvrLogSchema = new mongoose.Schema({
-    callid: {
-        type: String,
-        required: true,
-        unique: true, // Assuming callid is unique from the IVR system
-        trim: true
+    callid: { type: String, required: true, unique: true, trim: true },
+    agent_phone: { type: String, required: true, trim: true },
+    customer_phone: { type: String, required: true, trim: true },
+    status: { 
+        type: String, 
+        required: true, 
+        enum: ['Answered', 'Unanswered', 'Missed', 'Busy', 'Failed'], 
+        default: 'Answered' 
     },
-    agent_phone: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    customer_phone: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    status: {
-        type: String,
-        required: true,
-        enum: ['Answered', 'Missed', 'Busy', 'Failed', 'No Answer'], // Extend as needed
-        default: 'Answered'
-    },
-    date: {
-        type: String, // Kept as String to preserve "YYYY/MM/DD" format or parse later
-        required: true
-    },
-    time: {
-        type: String, // Kept as String for "HH:MM:SS" format
-        required: true
-    },
-    call_recording: {
-        type: String,
-        trim: true,
-        default: null
-    },
+    date: { type: String, required: true },
+    time: { type: String, required: true },
+    call_recording: { type: String, trim: true, default: null },
     calledAgents: [CalledAgentSchema],
     call_duration: {
-        type: Number, // Casted to Number for easier querying/analytics
-        required: true,
-        set: v => parseInt(v, 10)
+        type: Number,
+        required: false,
+        // Safely converts empty strings "" or missing values to 0
+        set: v => (v === "" || v === null || v === undefined) ? 0 : parseInt(v, 10)
     },
     total_call_duration: {
-        type: Number, // Casted to Number
+        type: Number,
         required: true,
-        set: v => parseInt(v, 10)
+        set: v => (v === "" || v === null) ? 0 : parseInt(v, 10)
     },
-    did: {
-        type: String,
-        required: true,
-        trim: true
-    }
+    Direction: { 
+        type: String, 
+        enum: ['inbound', 'outbound'], 
+        default: 'inbound',
+        trim: true 
+    },
+    did: { type: String, required: true, trim: true }
 }, {
-    timestamps: true // Adds createdAt and updatedAt automatically
+    timestamps: true
 });
 
 module.exports = mongoose.model('IvrLog', IvrLogSchema);
