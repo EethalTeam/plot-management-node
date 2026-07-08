@@ -40,6 +40,7 @@ app.use((req, res, next) => {
 const leadDocsPath = path.resolve(__dirname, 'lead_documents');
 app.use('/api/lead_documents', express.static(path.join(__dirname, 'lead_documents')));
 app.get('/api/calls/fetch-all', CallLogController.fetchAllCallLogs);
+app.get('/api/calls/fetch-IvrCalls', CallLogController.fetchIvrCallLogs);
 // app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.post('/api/fetchCallLogs', IvrController.saveIvrWebhook); // Updated to use the new IVR controller
 app.use('/api', masterRoutes);
