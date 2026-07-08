@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-require("dotenv").config();
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
@@ -9,36 +7,19 @@ const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const registerScheduledJobs = require("./queues/scheduledJobs");
+const startScheduledWorker = require("./queues/scheduledWorker");
+const { scheduledQueue } = require("./queues/scheduledQueue");
+const CronJobControllers = require("./controllers/mainControllers/CronJobControllers");
+require("dotenv").config();
 const masterRoutes = require("./routes/masterRoutes");
 const mainRoutes = require("./routes/mainRoutes");
 const Notification = require("./models/masterModels/Notification");
 const CallLogController = require("./controllers/masterControllers/callLogControllers");
 const LeadController = require("./controllers/masterControllers/LeadControllers");
+const IvrController = require("./controllers/masterControllers/ivrController");
 const upload = multer({ dest: "uploads/" });
-const registerScheduledJobs = require("./queues/scheduledJobs");
-const startScheduledWorker = require("./queues/scheduledWorker");
-const { scheduledQueue } = require("./queues/scheduledQueue");
-const CronJobControllers = require("./controllers/mainControllers/CronJobControllers");
-=======
-require('dotenv').config();
-const mongoose = require('mongoose');
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
-const fs = require('fs'); 
-const multer = require('multer')
-const masterRoutes = require('./routes/masterRoutes');
-const mainRoutes = require('./routes/mainRoutes');
-const Notification = require('./models/masterModels/Notification');
-const CallLogController=require('./controllers/masterControllers/callLogControllers')
-const LeadController = require('./controllers/masterControllers/LeadControllers')
-const IvrController = require('./controllers/masterControllers/ivrController')
-const upload = multer({ dest: 'uploads/' });
->>>>>>> e4abc2c76b89d5c9b0f5f1ed05221ea9f0be04d8
-
+const googleapis = require("googleapis");
 const app = express();
 const PORT = 8004;
 
@@ -73,25 +54,16 @@ app.use((req, res, next) => {
 
   next();
 });
-<<<<<<< HEAD
 const leadDocsPath = path.resolve(__dirname, "lead_documents");
 app.use(
   "/api/lead_documents",
   express.static(path.join(__dirname, "lead_documents")),
 );
 app.get("/api/calls/fetch-all", CallLogController.fetchAllCallLogs);
-app.post("/api/fetchCallLogs", CallLogController.handleTelecmiWebhook);
+// app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
+app.post("/api/fetchCallLogs", IvrController.saveIvrWebhook); // Updated to use the new IVR controller
 app.use("/api", masterRoutes);
 app.use("/api", mainRoutes);
-=======
-const leadDocsPath = path.resolve(__dirname, 'lead_documents');
-app.use('/api/lead_documents', express.static(path.join(__dirname, 'lead_documents')));
-app.get('/api/calls/fetch-all', CallLogController.fetchAllCallLogs);
-// app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
-app.post('/api/fetchCallLogs', IvrController.saveIvrWebhook); // Updated to use the new IVR controller
-app.use('/api', masterRoutes);
-app.use('/api', mainRoutes);
->>>>>>> e4abc2c76b89d5c9b0f5f1ed05221ea9f0be04d8
 
 app.post("/api/test-bullmq-job", async (req, res) => {
   const { jobName = "daily-session-generation" } = req.body || {};

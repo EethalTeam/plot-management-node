@@ -2,6 +2,9 @@ const Lead = require('../../models/masterModels/Leads'); // Adjust path
 const XLSX = require("xlsx");
 const Employee = require('../../models/masterModels/Employee'); // Adjust path
 const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
+const LeadSource = require('../../models/masterModels/LeadSource');
+const City = require('../../models/masterModels/City');
+const State = require('../../models/masterModels/State');
 const Visitor = require('../../models/masterModels/Visitor'); // Adjust path
 const Notification = require("../../models/masterModels/Notification");
 const RoleBased = require('../../models/masterModels/RBAC')
@@ -1158,6 +1161,104 @@ if (newStatusId && oldStatusId !== newStatusId) {
 //     res.status(500).json({message:error.message})
 //   }
 // }
+
+// --- INDIAMART WEBHOOK: create a Lead from IndiaMART's lead-push payload ---
+exports.indiamartWebhook = async (req, res) => {
+  try {
+    const {
+      UNIQUE_QUERY_ID,
+      SENDER_NAME,
+      SENDER_MOBILE,
+      SENDER_EMAIL,
+      QUERY_MESSAGE,
+      SENDER_CITY,
+      SENDER_STATE,
+    } = req.body;
+
+    if (!UNIQUE_QUERY_ID || !SENDER_MOBILE) {
+      return res.status(400).json({
+        success: false,
+        message: 'UNIQUE_QUERY_ID and SENDER_MOBILE are required.',
+      });
+    }
+
+    const existingByQueryId = await Lead.findOne({ leadExternalQueryId: UNIQUE_QUERY_ID });
+    if (existingByQueryId) {
+      return res.status(200).json({
+        success: true,
+        message: 'Lead already recorded for this query id.',
+        data: existingByQueryId,
+      });
+    }
+
+    const leadPhone = SENDER_MOBILE.toString().replace(/\D/g, '');
+    const existingByPhone = await Lead.findOne({ leadPhone });
+    if (existingByPhone) {
+      return res.status(200).json({
+        success: true,
+        message: 'Lead already exists for this mobile number.',
+        data: existingByPhone,
+      });
+    }
+
+    let leadSource = await LeadSource.findOne({ leadSourceName: 'IndiaMART' });
+    if (!leadSource) {
+      leadSource = await LeadSource.create({ leadSourceCode: 'INDIAMART', leadSourceName: 'IndiaMART' });
+    }
+
+    const leadStatus = await LeadStatus.findOne({ leadStatustName: 'New' });
+
+    const looseNameRegex = (name) =>
+      new RegExp(`^${name.trim().replace(/\s+/g, '\\s*')}$`, 'i');
+
+    const city = SENDER_CITY
+      ? await City.findOne({ CityName: looseNameRegex(SENDER_CITY) })
+      : null;
+    const state = SENDER_STATE
+      ? await State.findOne({ StateName: looseNameRegex(SENDER_STATE) })
+      : null;
+
+    const nameParts = (SENDER_NAME || '').trim().split(/\s+/);
+    const leadFirstName = nameParts.shift() || 'IndiaMART Lead';
+    const leadLastName = nameParts.join(' ');
+
+    const newLead = new Lead({
+      leadFirstName,
+      leadLastName,
+      leadEmail: SENDER_EMAIL || '',
+      leadPhone,
+      leadDescription: QUERY_MESSAGE || '',
+      leadNotes: QUERY_MESSAGE || '',
+      leadCityId: city ? city._id : undefined,
+      leadStateId: state ? state._id : undefined,
+      leadSourceId: leadSource._id,
+      leadStatusId: leadStatus ? leadStatus._id : undefined,
+      leadExternalSource: 'IndiaMART',
+      leadExternalQueryId: UNIQUE_QUERY_ID,
+      leadHistory: [{
+        eventType: 'Lead Created',
+        details: 'Lead received via IndiaMART webhook',
+        leadStatusId: leadStatus ? leadStatus._id : undefined,
+      }],
+    });
+
+    const savedLead = await newLead.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'IndiaMART lead created successfully',
+      data: savedLead,
+    });
+
+  } catch (error) {
+    console.error('IndiaMART Webhook Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process IndiaMART lead',
+      error: error.message,
+    });
+  }
+};
 
 exports.getLeadNameByNumber = async (req, res) => {
   try {

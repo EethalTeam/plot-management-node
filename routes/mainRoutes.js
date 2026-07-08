@@ -121,6 +121,7 @@ router.post(
   LeadControllers.addLeadDocument
 );
 router.post("/Lead/getLeadNameByNumber",LeadControllers.getLeadNameByNumber)
+router.post("/Lead/indiamart-webhook", LeadControllers.indiamartWebhook);
 
 
 //ReportControllers
