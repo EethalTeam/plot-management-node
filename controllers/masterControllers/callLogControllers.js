@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const TelecmiLog = require('../../models/masterModels/TeleCMICallLog');
+const IvrLog = require('../../models/masterModels/IvrLog');
 const Lead = require('../../models/masterModels/Leads'); // Adjust path
 
 
@@ -148,6 +149,39 @@ exports.fetchAllCallLogs = async (req, res) => {
   }
 };
 
+exports.fetchIvrCallLogs = async (req, res) => {
+  try {
+    const { page = 1, limit = 500 } = req.body;
+
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      IvrLog.find({})
+        .sort({ date: -1, time: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      IvrLog.countDocuments({})
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: logs.length,
+      total,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: skip + logs.length < total,
+        hasPrevPage: page > 1
+      },
+      data: logs
+    });
+
+  } catch (error) {
+    console.error('Error fetching IVR call logs:', error.message);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
 
 exports.handleTelecmiWebhook = async (req, res) => {
   try {

@@ -22,6 +22,7 @@ const WhatsAppController = require("./controllers/masterControllers/WhatsAppCont
 const verifyWhatsAppSignature = require("./middlewares/whatsappSignature");
 const startWhatsAppWorker = require("./queues/whatsappWorker");
 const socketRegistry = require("./utils/socketRegistry");
+const { ensureIvrLogsTable } = require("./utils/supabaseClient");
 const upload = multer({ dest: "uploads/" });
 const googleapis = require("googleapis");
 const app = express();
@@ -76,6 +77,7 @@ app.use(
   express.static(path.join(__dirname, "lead_documents")),
 );
 app.get("/api/calls/fetch-all", CallLogController.fetchAllCallLogs);
+app.get("/api/calls/fetch-IvrCalls", CallLogController.fetchIvrCallLogs);
 // app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.post("/api/fetchCallLogs", IvrController.saveIvrWebhook); // Updated to use the new IVR controller
 
@@ -332,6 +334,8 @@ async function main() {
       `📦 Collections in database: ${dbName}`,
       collections.map((col) => col.name),
     );
+
+    await ensureIvrLogsTable();
 
     server.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
