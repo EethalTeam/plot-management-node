@@ -1,37 +1,61 @@
-const Lead = require('../../models/masterModels/Leads'); // Adjust path
+const Lead = require("../../models/masterModels/Leads"); // Adjust path
 const XLSX = require("xlsx");
-const Employee = require('../../models/masterModels/Employee'); // Adjust path
-const LeadStatus = require('../../models/masterModels/LeadStatus'); // Adjust path
-const LeadSource = require('../../models/masterModels/LeadSource');
-const City = require('../../models/masterModels/City');
-const State = require('../../models/masterModels/State');
-const Visitor = require('../../models/masterModels/Visitor'); // Adjust path
+
+const Employee = require("../../models/masterModels/Employee"); // Adjust path
+const LeadStatus = require("../../models/masterModels/LeadStatus"); // Adjust path
+const LeadSource = require("../../models/masterModels/LeadSource");
+const City = require("../../models/masterModels/City");
+const State = require("../../models/masterModels/State");
+const Visitor = require("../../models/masterModels/Visitor"); // Adjust path
+const IndiaMartLead = require("../../models/masterModels/IndiaMartLead");
+const JustdialLead = require("../../models/masterModels/JustdialLead");
 const Notification = require("../../models/masterModels/Notification");
-const RoleBased = require('../../models/masterModels/RBAC')
-const path = require('path');
-const fs = require('fs'); // For file system operations (e.g., deleting files)
-const { default: mongoose } = require('mongoose');
-const e = require('cors');
+const RoleBased = require("../../models/masterModels/RBAC");
+const path = require("path");
+const fs = require("fs"); // For file system operations (e.g., deleting files)
+const { default: mongoose } = require("mongoose");
+const e = require("cors");
 
-const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
+const DOC_BASE_PATH = path.join(__dirname, "..", "..", "lead_documents");
 
- exports.createLead = async (req, res) => {
+exports.createLead = async (req, res) => {
   const {
-    leadUnitId, leadCreatedById, leadFirstName, leadLastName, leadEmail, leadPhone, leadJobTitle, leadLinkedIn,
-    leadAddress, leadCityId, leadStateId, leadCountryId, leadZipCode, leadNotes, leadDescription,SiteVisitDate,FollowDate,
-    leadStatusId, leadSourceId, leadPotentialValue, leadScore, leadTags, leadSiteId, documentIds, leadAltPhone
+    leadUnitId,
+    leadCreatedById,
+    leadFirstName,
+    leadLastName,
+    leadEmail,
+    leadPhone,
+    leadJobTitle,
+    leadLinkedIn,
+    leadAddress,
+    leadCityId,
+    leadStateId,
+    leadCountryId,
+    leadZipCode,
+    leadNotes,
+    leadDescription,
+    SiteVisitDate,
+    FollowDate,
+    leadStatusId,
+    leadSourceId,
+    leadPotentialValue,
+    leadScore,
+    leadTags,
+    leadSiteId,
+    documentIds,
+    leadAltPhone,
   } = req.body;
 
   const uploadedFiles = req.files || [];
   try {
     const existingLead = await Lead.findOne({ leadPhone });
     if (existingLead) {
-      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+      uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
       return res.status(400).json({
         success: false,
-        message: 'A lead with this phone already exists.'
+        message: "A lead with this phone already exists.",
       });
-
     }
 
     // const leadDocument = uploadedFiles.map((file, index) => ({
@@ -48,19 +72,18 @@ const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
     }));
     const LeadStatusExists = await LeadStatus.findById(leadStatusId);
     if (!LeadStatusExists) {
-      uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+      uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
       return res.status(400).json({
         success: false,
-        message: 'Invalid Lead Status ID provided.'
+        message: "Invalid Lead Status ID provided.",
       });
     }
 
     const initialHistory = {
-      eventType: 'Lead Created',
+      eventType: "Lead Created",
       details: `Initial lead creation with status: ${LeadStatusExists.leadStatustName}`,
-      leadStatusId: leadStatusId
+      leadStatusId: leadStatusId,
     };
-
 
     // res.status(201).json({purpose :'testing'})
     let createData = {
@@ -84,63 +107,70 @@ const DOC_BASE_PATH = path.join(__dirname, '..', '..', 'lead_documents');
       FollowDate,
       leadSiteId,
       leadNotes,
-      leadTags: leadTags ? (Array.isArray(leadTags) ? leadTags : leadTags.split(',')) : [], // Handle tags as comma-separated string or array
+      leadTags: leadTags
+        ? Array.isArray(leadTags)
+          ? leadTags
+          : leadTags.split(",")
+        : [], // Handle tags as comma-separated string or array
       leadDocument,
-      leadHistory: [initialHistory]
-    }
+      leadHistory: [initialHistory],
+    };
     if (leadUnitId) {
-      createData.leadUnitId = leadUnitId
+      createData.leadUnitId = leadUnitId;
     }
     if (leadStatusId) {
-      createData.leadStatusId = leadStatusId
+      createData.leadStatusId = leadStatusId;
     } else {
-      const LeadStatusExists1 = await LeadStatus.findById({ leadStatusName: 'New' });
+      const LeadStatusExists1 = await LeadStatus.findById({
+        leadStatusName: "New",
+      });
       if (!LeadStatusExists1) {
-        uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+        uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
         return res.status(400).json({
           success: false,
-          message: 'Invalid Lead Status ID provided.'
+          message: "Invalid Lead Status ID provided.",
         });
       }
 
       createData.leadStatusId = LeadStatusExists1._id;
-
     }
     if (leadSourceId) {
-
-      createData.leadSourceId = leadSourceId
+      createData.leadSourceId = leadSourceId;
     } else {
-      const LeadSourceExists = await LeadStatus.findOne({ leadSourceName: 'Referral' });
+      const LeadSourceExists = await LeadStatus.findOne({
+        leadSourceName: "Referral",
+      });
       if (!LeadSourceExists && leadSourceId) {
-        uploadedFiles.forEach(file => fs.unlinkSync(file.path));
+        uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
         return res.status(400).json({
           success: false,
-          message: 'Invalid Lead Source ID provided.'
+          message: "Invalid Lead Source ID provided.",
         });
       }
-      createData.leadSourceId = LeadSourceExists._id
+      createData.leadSourceId = LeadSourceExists._id;
     }
     const newLead = new Lead(createData);
 
     const savedLead = await newLead.save();
 
-
-
     res.status(201).json({
       success: true,
-      message: 'Lead created successfully with documents',
-      data: savedLead
+      message: "Lead created successfully with documents",
+      data: savedLead,
     });
-
   } catch (error) {
     console.error("Create Lead Error:", error);
-    uploadedFiles.forEach(file => {
-      try { fs.unlinkSync(file.path); } catch (e) { console.error("Cleanup error:", e); }
+    uploadedFiles.forEach((file) => {
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {
+        console.error("Cleanup error:", e);
+      }
     });
     res.status(500).json({
       success: false,
-      message: 'Failed to create lead',
-      error: error.message
+      message: "Failed to create lead",
+      error: error.message,
     });
   }
 };
@@ -158,15 +188,15 @@ exports.getAllLeads = async (req, res) => {
     if (EmployeeId) {
       query.$or = [
         { leadCreatedById: new mongoose.Types.ObjectId(EmployeeId) },
-        { leadAssignedId: new mongoose.Types.ObjectId(EmployeeId) }
-      ]
+        { leadAssignedId: new mongoose.Types.ObjectId(EmployeeId) },
+      ];
     }
 
     if (search) {
       query.$or = [
-        { 'leadFirstName': { $regex: search, $options: 'i' } },
-        { 'leadLastName': { $regex: search, $options: 'i' } },
-        { 'leadEmail': { $regex: search, $options: 'i' } }
+        { leadFirstName: { $regex: search, $options: "i" } },
+        { leadLastName: { $regex: search, $options: "i" } },
+        { leadEmail: { $regex: search, $options: "i" } },
       ];
     }
     const [leads, total] = await Promise.all([
@@ -174,15 +204,15 @@ exports.getAllLeads = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        .populate('leadStatusId', 'leadStatustName')
-        .populate('leadSourceId', 'leadSourceName')
-        .populate('leadCityId', 'CityName')
-        .populate('leadStateId', 'StateName')
-        .populate('leadCountryId', 'CountryName')
-        .populate('leadAssignedId', 'EmployeeName')
-        .populate('leadSiteId', 'sitename')
-        .populate('leadUnitId', 'UnitName'),
-      Lead.countDocuments(query)
+        .populate("leadStatusId", "leadStatustName")
+        .populate("leadSourceId", "leadSourceName")
+        .populate("leadCityId", "CityName")
+        .populate("leadStateId", "StateName")
+        .populate("leadCountryId", "CountryName")
+        .populate("leadAssignedId", "EmployeeName")
+        .populate("leadSiteId", "sitename")
+        .populate("leadUnitId", "UnitName"),
+      Lead.countDocuments(query),
     ]);
 
     res.status(200).json({
@@ -191,9 +221,8 @@ exports.getAllLeads = async (req, res) => {
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: Number(page),
-      data: leads
+      data: leads,
     });
-
   } catch (error) {
     console.error("Get All Leads Error:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -205,28 +234,31 @@ exports.getLeadById = async (req, res) => {
     const { leadId } = req.body;
 
     if (!leadId) {
-      return res.status(400).json({ success: false, message: 'Lead ID is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Lead ID is required" });
     }
 
     const lead = await Lead.findById(leadId)
-      .populate('leadStatusId', 'leadStatustName')
-      .populate('leadSourceId', 'leadSourceName')
-      .populate('leadCityId', 'CityName')
-      .populate('leadStateId', 'StateName')
-      .populate('leadCountryId', 'CountryName')
-      .populate('leadAssignedId', 'EmployeeName')
-      .populate('leadSiteId', 'sitename')
-      .populate('leadUnitId', 'UnitName')
+      .populate("leadStatusId", "leadStatustName")
+      .populate("leadSourceId", "leadSourceName")
+      .populate("leadCityId", "CityName")
+      .populate("leadStateId", "StateName")
+      .populate("leadCountryId", "CountryName")
+      .populate("leadAssignedId", "EmployeeName")
+      .populate("leadSiteId", "sitename")
+      .populate("leadUnitId", "UnitName");
 
     if (!lead) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     res.status(200).json({
       success: true,
-      data: lead
+      data: lead,
     });
-
   } catch (error) {
     console.error("Get Lead by ID Error:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -250,13 +282,17 @@ exports.updateLead = async (req, res) => {
 
     if (!leadId) {
       uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
-      return res.status(400).json({ success: false, message: "Lead ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Lead ID is required" });
     }
 
     const oldLead = await Lead.findById(leadId);
     if (!oldLead) {
       uploadedFiles.forEach((file) => fs.unlinkSync(file.path));
-      return res.status(404).json({ success: false, message: "Lead not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     const updatedData = { ...updateData };
@@ -265,7 +301,9 @@ exports.updateLead = async (req, res) => {
     if (existingDocs) {
       try {
         const retainedDocs = JSON.parse(existingDocs);
-        finalDocuments = Array.isArray(retainedDocs) ? retainedDocs : [retainedDocs];
+        finalDocuments = Array.isArray(retainedDocs)
+          ? retainedDocs
+          : [retainedDocs];
       } catch (e) {
         console.error("Error parsing existingDocs:", e);
       }
@@ -273,7 +311,9 @@ exports.updateLead = async (req, res) => {
 
     if (uploadedFiles.length > 0) {
       const newDocuments = uploadedFiles.map((file, index) => ({
-        documentId: Array.isArray(documentIds) ? documentIds[index] : documentIds || null,
+        documentId: Array.isArray(documentIds)
+          ? documentIds[index]
+          : documentIds || null,
         fileName: file.originalname,
         fileUrl: file.filename,
         uploadDate: new Date(),
@@ -283,10 +323,17 @@ exports.updateLead = async (req, res) => {
     updatedData.leadDocument = finalDocuments;
 
     let historyEntries = [];
-    const oldLeadStatusName = oldLead.leadStatusId ? (await LeadStatus.findById(oldLead.leadStatusId)).leadStatustName : "N/A";
-    const newLeadStatusName = updatedData.leadStatusId ? (await LeadStatus.findById(updatedData.leadStatusId)).leadStatustName : oldLeadStatusName;
-    if (updatedData.leadStatusId && updatedData.leadStatusId.toString() !== oldLead.leadStatusId?.toString()) {
-      console.log("here")
+    const oldLeadStatusName = oldLead.leadStatusId
+      ? (await LeadStatus.findById(oldLead.leadStatusId)).leadStatustName
+      : "N/A";
+    const newLeadStatusName = updatedData.leadStatusId
+      ? (await LeadStatus.findById(updatedData.leadStatusId)).leadStatustName
+      : oldLeadStatusName;
+    if (
+      updatedData.leadStatusId &&
+      updatedData.leadStatusId.toString() !== oldLead.leadStatusId?.toString()
+    ) {
+      console.log("here");
       historyEntries.push({
         eventType: "Status Change",
         details: `Status updated from ${oldLeadStatusName} to ${newLeadStatusName} by ${employeeName}`,
@@ -302,7 +349,9 @@ exports.updateLead = async (req, res) => {
       if (!adminRoleId) {
         res.status(400).json({ message: "Admin role not found" });
       }
-      const superAdminRoleId = await RoleBased.findOne({ RoleName: "superadmin" });
+      const superAdminRoleId = await RoleBased.findOne({
+        RoleName: "superadmin",
+      });
       if (!superAdminRoleId) {
         res.status(400).json({ message: "SuperAdmin role not found" });
       }
@@ -312,7 +361,7 @@ exports.updateLead = async (req, res) => {
 
       // Find all Admin & SuperAdmin
       const admins = await Employee.find({
-        roleId: { $in: [superAdminRoleId._id, adminRoleId._id] }
+        roleId: { $in: [superAdminRoleId._id, adminRoleId._id] },
       });
       console.log("Admins Found:", admins.length);
 
@@ -330,22 +379,23 @@ exports.updateLead = async (req, res) => {
               leadId: oldLead._id,
               oldStatus: oldLeadStatusName,
               newStatus: newLeadStatusName,
-            }
+            },
           });
 
           await newNotification.save();
-          console.log(newNotification,"newNotification")
+          console.log(newNotification, "newNotification");
 
           // 3. Emit via Socket.io
           if (io) {
-            io.to(admin._id.toString()).emit("receiveNotification", newNotification);
+            io.to(admin._id.toString()).emit(
+              "receiveNotification",
+              newNotification,
+            );
           }
         });
 
         await Promise.all(notificationPromises);
       }
-
-
     }
 
     if (updatedData.leadScore && updatedData.leadScore !== oldLead.leadScore) {
@@ -395,11 +445,12 @@ exports.updateLead = async (req, res) => {
       message: "Lead updated successfully",
       data: updatedLead,
     });
-
   } catch (error) {
     console.error("Update Lead Error:", error);
     uploadedFiles.forEach((file) => {
-      try { fs.unlinkSync(file.path); } catch (e) { }
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {}
     });
     res.status(500).json({ success: false, message: error.message });
   }
@@ -413,132 +464,126 @@ exports.assignLead = async (req, res) => {
     if (!leadId || !leadAssignedId) {
       return res.status(400).json({
         success: false,
-        message: 'Both Lead ID and Assignee ID are required.'
+        message: "Both Lead ID and Assignee ID are required.",
       });
     }
 
     // Fetch lead to get current assignee and status for history
     const lead = await Lead.findById(leadId);
     if (!lead) {
-      return res.status(404).json({ success: false, message: 'Lead not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found." });
     }
     const assignedemployee = await Employee.findById(leadAssignedId);
     if (!assignedemployee) {
-      return res.status(404).json({ success: false, message: 'Assigned Employee not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Assigned Employee not found." });
     }
 
     const historyEntry = {
-      eventType: 'Lead Assigned',
-      details: `Lead assigned to ${assignedemployee.EmployeeName} by ${employeeName || 'System'}`,
-      employeeName: employeeName || 'System',
+      eventType: "Lead Assigned",
+      details: `Lead assigned to ${assignedemployee.EmployeeName} by ${employeeName || "System"}`,
+      employeeName: employeeName || "System",
       leadStatusId: lead.leadStatusId,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
       {
         $set: { leadAssignedId: leadAssignedId },
-        $push: { leadHistory: historyEntry }
+        $push: { leadHistory: historyEntry },
       },
-      { new: true, runValidators: true }
-    ).populate('leadAssignedId', 'EmployeeName');
-   
+      { new: true, runValidators: true },
+    ).populate("leadAssignedId", "EmployeeName");
 
+    // --- ASSIGNMENT NOTIFICATION ---
+    const io = req.app.get("socketio");
 
-// --- ASSIGNMENT NOTIFICATION ---
-const io = req.app.get("socketio");
+    // FIX 1: Correct variable name
+    const assignedEmployee = await Employee.findById(leadAssignedId);
 
-// FIX 1: Correct variable name
-const assignedEmployee = await Employee.findById(leadAssignedId);
+    // Who assigned the lead
+    const assignedById = lead.leadCreatedById;
+    const assignedByName = employeeName || "System";
 
-// Who assigned the lead
-const assignedById =  lead.leadCreatedById;
-const assignedByName = employeeName || "System";
+    // Find Admin & SuperAdmin roles
+    const adminRole = await RoleBased.findOne({ RoleName: "Admin" });
+    const superAdminRole = await RoleBased.findOne({ RoleName: "superadmin" });
 
-// Find Admin & SuperAdmin roles
-const adminRole = await RoleBased.findOne({ RoleName: "Admin" });
-const superAdminRole = await RoleBased.findOne({ RoleName: "superadmin" });
+    const admins = await Employee.find({
+      roleId: { $in: [adminRole._id, superAdminRole._id] },
+    });
 
-const admins = await Employee.find({
-  roleId: { $in: [adminRole._id, superAdminRole._id] }
-});
+    // 🔔 Notify Admin & SuperAdmin
+    const adminNotifications = admins.map(async (admin) => {
+      const notification = new Notification({
+        fromEmployeeId: assignedById,
+        toEmployeeId: admin._id,
 
-// 🔔 Notify Admin & SuperAdmin
-const adminNotifications = admins.map(async (admin) => {
-  const notification = new Notification({
-    fromEmployeeId: assignedById,
-    toEmployeeId: admin._id,
+        message: `Lead "${lead.leadFirstName} ${lead.leadLastName}" assigned to ${assignedEmployee.EmployeeName} by ${assignedByName}`,
 
-    message: `Lead "${lead.leadFirstName} ${lead.leadLastName}" assigned to ${assignedEmployee.EmployeeName} by ${assignedByName}`,
+        type: "lead-assigned",
+        status: "unseen",
 
-    type: "lead-assigned",
-    status: "unseen",
+        meta: {
+          leadId: lead._id,
 
-    meta: {
-      leadId: lead._id,
+          assignedToId: assignedEmployee._id,
+          assignedToName: assignedEmployee.EmployeeName,
 
-      assignedToId: assignedEmployee._id,
-      assignedToName: assignedEmployee.EmployeeName,
+          assignedById: assignedById,
+          assignedByName: assignedByName,
+        },
+      });
 
-      assignedById: assignedById,
-      assignedByName: assignedByName,
+      await notification.save();
+
+      if (io) {
+        io.to(admin._id.toString()).emit("receiveNotification", notification);
+      }
+      // Notify Assigned Agent
+    });
+
+    const agentNotification = new Notification({
+      fromEmployeeId: assignedById,
+      toEmployeeId: assignedEmployee._id,
+
+      message: `A lead "${lead.leadFirstName} ${lead.leadLastName}" has been assigned to you by ${assignedByName}`,
+
+      type: "lead-assigned",
+      status: "unseen",
+
+      meta: {
+        leadId: lead._id,
+
+        assignedToId: assignedEmployee._id,
+        assignedToName: assignedEmployee.EmployeeName,
+
+        assignedById: assignedById,
+        assignedByName: assignedByName,
+      },
+    });
+
+    await agentNotification.save();
+
+    // Emit socket to assigned agent
+    if (io) {
+      io.to(assignedEmployee._id.toString()).emit(
+        "receiveNotification",
+        agentNotification,
+      );
     }
-  });
 
-  await notification.save();
-
-  if (io) {
-    io.to(admin._id.toString()).emit("receiveNotification", notification);
-  }
-  // Notify Assigned Agent
-
-
-
-
-});
-
-const agentNotification = new Notification({
-  fromEmployeeId: assignedById,
-  toEmployeeId: assignedEmployee._id,
-
-  message: `A lead "${lead.leadFirstName} ${lead.leadLastName}" has been assigned to you by ${assignedByName}`,
-
-  type: "lead-assigned",
-  status: "unseen",
-
-  meta: {
-    leadId: lead._id,
-
-    assignedToId: assignedEmployee._id,
-    assignedToName: assignedEmployee.EmployeeName,
-
-    assignedById: assignedById,
-    assignedByName: assignedByName,
-  }
-});
-
-await agentNotification.save();
-
-// Emit socket to assigned agent
-if (io) {
-  io.to(assignedEmployee._id.toString()).emit(
-    "receiveNotification",
-    agentNotification
-  );
-}
-
-await Promise.all(adminNotifications);
-
-
-
+    await Promise.all(adminNotifications);
 
     res.status(200).json({
       success: true,
-      message: 'Lead assigned successfully',
-      data: updatedLead
+      message: "Lead assigned successfully",
+      data: updatedLead,
     });
-
   } catch (error) {
     console.error("Assign Lead Error:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -549,10 +594,13 @@ exports.deleteLead = async (req, res) => {
   try {
     const { leadId, deletedStatusId } = req.body; // Pass the ID of the 'Deleted' status
 
-    console.log(leadId, deletedStatusId,"req.body delete")
+    console.log(leadId, deletedStatusId, "req.body delete");
 
     if (!leadId || !deletedStatusId) {
-      return res.status(400).json({ success: false, message: 'Lead ID and Deleted Status ID are required' });
+      return res.status(400).json({
+        success: false,
+        message: "Lead ID and Deleted Status ID are required",
+      });
     }
 
     const updatedLead = await Lead.findByIdAndUpdate(
@@ -561,41 +609,41 @@ exports.deleteLead = async (req, res) => {
         leadStatusId: deletedStatusId,
         $push: {
           leadHistory: {
-            eventType: 'Lead Archived',
-            details: 'Lead soft-deleted (archived) by setting status to Deleted.',
-            leadStatusId: deletedStatusId
-          }
-        }
+            eventType: "Lead Archived",
+            details:
+              "Lead soft-deleted (archived) by setting status to Deleted.",
+            leadStatusId: deletedStatusId,
+          },
+        },
       },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedLead) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Lead moved to archive status'
+      message: "Lead moved to archive status",
     });
-
   } catch (error) {
     console.error("Delete Lead Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-
-// option 2 for delete lead 
+// option 2 for delete lead
 // exports.deleteLead = async (req, res) => {
 //     try {
 //         const { _id } = req.body;
-        
+
 //         if (!mongoose.Types.ObjectId.isValid(_id)) {
 //             return res.status(400).json({ message: 'Invalid ID' });
 //         }
-        
+
 //         const leads = await Lead.findByIdAndDelete(_id);
 
 //         if (!leads) {
@@ -614,33 +662,39 @@ exports.addLeadDocument = async (req, res) => {
 
   if (!leadId) {
     if (uploadedFile) fs.unlinkSync(uploadedFile.path);
-    return res.status(400).json({ success: false, message: 'Lead ID is required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: "Lead ID is required." });
   }
 
   if (!uploadedFile) {
-    return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    return res
+      .status(400)
+      .json({ success: false, message: "No file uploaded." });
   }
 
   try {
     const currentLead = await Lead.findById(leadId);
     if (!currentLead) {
       if (uploadedFile) fs.unlinkSync(uploadedFile.path);
-      return res.status(404).json({ success: false, message: 'Lead not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found." });
     }
 
     const newDocument = {
       documentId: documentId || null, // Reference to Document master
       fileName: uploadedFile.originalname,
       fileUrl: uploadedFile.path, // Or use .replace() for relative paths
-      uploadDate: new Date()
+      uploadDate: new Date(),
     };
 
     const historyEntry = {
       timestamp: new Date(),
-      eventType: 'Document Uploaded',
+      eventType: "Document Uploaded",
       details: `Attached document: ${uploadedFile.originalname}`,
       employeeName: employeeName || null, // Who uploaded it
-      leadStatusId: currentLead.leadStatusId // The status at the time of upload
+      leadStatusId: currentLead.leadStatusId, // The status at the time of upload
     };
 
     const updatedLead = await Lead.findByIdAndUpdate(
@@ -648,31 +702,30 @@ exports.addLeadDocument = async (req, res) => {
       {
         $push: {
           leadDocument: newDocument,
-          leadHistory: historyEntry
-        }
+          leadHistory: historyEntry,
+        },
       },
-      { new: true, runValidators: true }
-    ).populate('leadDocument.documentId', 'documentName'); // Optional: populate master doc info
+      { new: true, runValidators: true },
+    ).populate("leadDocument.documentId", "documentName"); // Optional: populate master doc info
 
     res.status(200).json({
       success: true,
-      message: 'Document uploaded and interaction logged successfully.',
-      data: updatedLead.leadDocument
+      message: "Document uploaded and interaction logged successfully.",
+      data: updatedLead.leadDocument,
     });
-
   } catch (error) {
     console.error("Add Document Error:", error);
     // Clean up physical file if database operation fails
     if (uploadedFile && fs.existsSync(uploadedFile.path)) {
       fs.unlinkSync(uploadedFile.path);
     }
-    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
-
-
-
-
 
 //  exports.importLeads = async (req, res) => {
 //   try {
@@ -771,8 +824,6 @@ exports.addLeadDocument = async (req, res) => {
 //     })
 //   : null;
 
-
-
 //       leadsToInsert.push({
 //         leadFirstName: name.trim(),
 //         leadPhone: phone,
@@ -830,13 +881,12 @@ exports.addLeadDocument = async (req, res) => {
 //   }
 // };
 
-
 exports.importLeads = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "No file uploaded"
+        message: "No file uploaded",
       });
     }
 
@@ -848,7 +898,7 @@ exports.importLeads = async (req, res) => {
       fs.unlinkSync(req.file.path);
       return res.status(400).json({
         success: false,
-        message: "Excel is empty"
+        message: "Excel is empty",
       });
     }
 
@@ -857,24 +907,14 @@ exports.importLeads = async (req, res) => {
 
     // 🔹 Get existing phones once
     const existingPhones = new Set(
-      (await Lead.find({}, "leadPhone")).map(l => l.leadPhone)
+      (await Lead.find({}, "leadPhone")).map((l) => l.leadPhone),
     );
 
     for (const row of rows) {
-
-
-      const name =
-        row["full_name"] ||
-        row["Full Name"] ||
-        row["name"] ||
-        "";
-
+      const name = row["full_name"] || row["Full Name"] || row["name"] || "";
 
       const phoneRaw =
-        row["phone_number"] ||
-        row["Phone"] ||
-        row["Mobile"] ||
-        "";
+        row["phone_number"] || row["Phone"] || row["Mobile"] || "";
 
       let phone = phoneRaw.toString().replace(/\D/g, "");
 
@@ -893,57 +933,45 @@ exports.importLeads = async (req, res) => {
         continue;
       }
 
+      const email = row["email"] || row["Email"] || "";
 
-      const email =
-        row["email"] ||
-        row["Email"] ||
-        "";
-
-      const cityRaw =
-        row["city"] ||
-        row["City"] ||
-        "";
-      const cleanCity = cityRaw
-        ? cityRaw.toString().split(",")[0].trim()
-        : "";
+      const cityRaw = row["city"] || row["City"] || "";
+      const cleanCity = cityRaw ? cityRaw.toString().split(",")[0].trim() : "";
       const city = cleanCity
         ? await mongoose.model("City").findOne({
-          CityName: new RegExp(`^${cleanCity}$`, "i")
-        })
+            CityName: new RegExp(`^${cleanCity}$`, "i"),
+          })
         : null;
 
       const descriptionParts = [];
 
       if (row["what_is_your_preferred_plot_size?"]) {
         descriptionParts.push(
-          `Preferred Plot Size: ${row["what_is_your_preferred_plot_size?"]}`
+          `Preferred Plot Size: ${row["what_is_your_preferred_plot_size?"]}`,
         );
       }
 
       if (row["are_you_planning_to_build_soon?"]) {
         descriptionParts.push(
-          `Planning to Build: ${row["are_you_planning_to_build_soon?"]}`
+          `Planning to Build: ${row["are_you_planning_to_build_soon?"]}`,
         );
       }
 
       if (row["would_you_like_a_site_visit?"]) {
         descriptionParts.push(
-          `Site Visit: ${row["would_you_like_a_site_visit?"]}`
+          `Site Visit: ${row["would_you_like_a_site_visit?"]}`,
         );
       }
 
       const leadDescription = descriptionParts.join("\n");
 
-
       const leadNotes = row["Status"]?.trim() || "";
-
 
       const status = row["Status"]
         ? await LeadStatus.findOne({
-          leadStatustName: new RegExp(`^${row["Status"].trim()}$`, "i")
-        })
+            leadStatustName: new RegExp(`^${row["Status"].trim()}$`, "i"),
+          })
         : null;
-
 
       const site = row["Site"]
         ? await mongoose.model("Site").findOne({ sitename: row["Site"].trim() })
@@ -951,10 +979,9 @@ exports.importLeads = async (req, res) => {
 
       const employee = row["Assigned To"]
         ? await Employee.findOne({
-          EmployeeName: new RegExp(`^${row["Assigned To"].trim()}$`, "i")
-        })
+            EmployeeName: new RegExp(`^${row["Assigned To"].trim()}$`, "i"),
+          })
         : null;
-
 
       leadsToInsert.push({
         leadFirstName: name.trim(),
@@ -971,9 +998,9 @@ exports.importLeads = async (req, res) => {
             eventType: "Lead Imported",
             details: "Imported via Excel",
             leadStatusId: status?._id || null,
-            timestamp: new Date()
-          }
-        ]
+            timestamp: new Date(),
+          },
+        ],
       });
 
       existingPhones.add(phone);
@@ -986,7 +1013,7 @@ exports.importLeads = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "No valid leads found",
-        skipped
+        skipped,
       });
     }
 
@@ -995,9 +1022,8 @@ exports.importLeads = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `${leadsToInsert.length} leads imported successfully`,
-      skipped
+      skipped,
     });
-
   } catch (error) {
     console.error("IMPORT ERROR:", error);
 
@@ -1008,99 +1034,123 @@ exports.importLeads = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Excel import failed",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-
-
 // --- 7. ADD NOTE TO LEAD (Rename and map to leadHistory) ---
 exports.addLeadNote = async (req, res) => {
   try {
-    const { leadId, details, leadNotes, employeeName, leadStatusId, FollowDate, SiteVisitDate } = req.body; // Capture current status if applicable
+    const {
+      leadId,
+      details,
+      leadNotes,
+      employeeName,
+      leadStatusId,
+      FollowDate,
+      SiteVisitDate,
+    } = req.body; // Capture current status if applicable
 
     if (!leadId || !details) {
-      return res.status(400).json({ success: false, message: 'Lead ID and note details are required' });
+      return res.status(400).json({
+        success: false,
+        message: "Lead ID and note details are required",
+      });
     }
 
     // Check lead status if not provided, for history logging
     const oldLead = await Lead.findById(leadId);
-    const lead = await Lead.findById(leadId, 'leadStatusId');
+    const lead = await Lead.findById(leadId, "leadStatusId");
     if (!lead) {
-      return res.status(404).json({ success: false, message: 'Lead not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
     }
 
     const newHistoryEntry = {
-      eventType: 'Note Added',
+      eventType: "Note Added",
       details: `Note updated: ${details} by ${employeeName}`,
       employeeName: employeeName, // User making the note
-      leadStatusId: leadStatusId || lead.leadStatusId // Use provided status or current status
+      leadStatusId: leadStatusId || lead.leadStatusId, // Use provided status or current status
     };
 
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
-      { $set: { leadNotes: leadNotes, SiteVisitDate: SiteVisitDate, FollowDate: FollowDate, leadStatusId: leadStatusId }, $push: { leadHistory: newHistoryEntry } },
-      { new: true }
+      {
+        $set: {
+          leadNotes: leadNotes,
+          SiteVisitDate: SiteVisitDate,
+          FollowDate: FollowDate,
+          leadStatusId: leadStatusId,
+        },
+        $push: { leadHistory: newHistoryEntry },
+      },
+      { new: true },
     );
 
     // --- STATUS CHANGE NOTIFICATION ---
-const oldStatusId = oldLead.leadStatusId?.toString();
-const newStatusId = leadStatusId?.toString();
+    const oldStatusId = oldLead.leadStatusId?.toString();
+    const newStatusId = leadStatusId?.toString();
 
-if (newStatusId && oldStatusId !== newStatusId) {
+    if (newStatusId && oldStatusId !== newStatusId) {
+      const oldStatus = await LeadStatus.findById(oldStatusId);
+      const newStatus = await LeadStatus.findById(newStatusId);
 
-  const oldStatus = await LeadStatus.findById(oldStatusId);
-  const newStatus = await LeadStatus.findById(newStatusId);
+      const oldStatusName = oldStatus?.leadStatustName || "N/A";
+      const newStatusName = newStatus?.leadStatustName || "N/A";
 
-  const oldStatusName = oldStatus?.leadStatustName || "N/A";
-  const newStatusName = newStatus?.leadStatustName || "N/A";
+      const io = req.app.get("socketio");
 
-  const io = req.app.get("socketio");
+      const adminRoleId = await RoleBased.findOne({ RoleName: "Admin" });
+      if (!adminRoleId)
+        return res.status(400).json({ message: "Admin role not found" });
 
-  const adminRoleId = await RoleBased.findOne({ RoleName: "Admin" });
-  if (!adminRoleId) return res.status(400).json({ message: "Admin role not found" });
+      const superAdminRoleId = await RoleBased.findOne({
+        RoleName: "superadmin",
+      });
+      if (!superAdminRoleId)
+        return res.status(400).json({ message: "SuperAdmin role not found" });
 
-  const superAdminRoleId = await RoleBased.findOne({ RoleName: "superadmin" });
-  if (!superAdminRoleId) return res.status(400).json({ message: "SuperAdmin role not found" });
+      const admins = await Employee.find({
+        roleId: { $in: [adminRoleId._id, superAdminRoleId._id] },
+      });
 
-  const admins = await Employee.find({
-    roleId: { $in: [adminRoleId._id, superAdminRoleId._id] }
-  });
+      const notificationPromises = admins.map(async (admin) => {
+        const notification = new Notification({
+          fromEmployeeId: oldLead.leadAssignedId || oldLead.leadCreatedById,
+          toEmployeeId: admin._id,
+          message: `Lead "${oldLead.leadFirstName} ${oldLead.leadLastName}" status changed from ${oldStatusName} to ${newStatusName}`,
+          type: "leadStatus-change",
+          status: "unseen",
+          meta: {
+            leadId: oldLead._id,
+            oldStatus: oldStatusName,
+            newStatus: newStatusName,
+          },
+        });
 
-  const notificationPromises = admins.map(async (admin) => {
+        await notification.save();
 
-    const notification = new Notification({
-      fromEmployeeId: oldLead.leadAssignedId || oldLead.leadCreatedById,
-      toEmployeeId: admin._id,
-      message: `Lead "${oldLead.leadFirstName} ${oldLead.leadLastName}" status changed from ${oldStatusName} to ${newStatusName}`,
-      type: "leadStatus-change",
-      status: "unseen",
-      meta: {
-        leadId: oldLead._id,
-        oldStatus: oldStatusName,
-        newStatus: newStatusName,
-      }
-    });
+        if (io) {
+          io.to(admin._id.toString()).emit("receiveNotification", notification);
+        }
+      });
 
-    await notification.save();
-
-    if (io) {
-      io.to(admin._id.toString()).emit("receiveNotification", notification);
+      await Promise.all(notificationPromises);
     }
-  });
-
-  await Promise.all(notificationPromises);
-}
-
-
 
     const targetStatus = await LeadStatus.findById(leadStatusId);
     // console.log(targetStatus, "targetStatus")
     if (targetStatus && targetStatus.leadStatustName === "Site Visit") {
-      const ExistingVisitor = await Visitor.findOne({ visitorMobile: oldLead.leadPhone, isActive: true });
+      const ExistingVisitor = await Visitor.findOne({
+        visitorMobile: oldLead.leadPhone,
+        isActive: true,
+      });
       if (!ExistingVisitor) {
-        const latestVisitor = await Visitor.findOne({}).sort({ visitorCode: -1 }).select("visitorCode");
+        const latestVisitor = await Visitor.findOne({})
+          .sort({ visitorCode: -1 })
+          .select("visitorCode");
 
         let newCode = "VIS00001";
         if (latestVisitor && latestVisitor.visitorCode) {
@@ -1111,7 +1161,8 @@ if (newStatusId && oldStatusId !== newStatusId) {
 
         const newVisitor = new Visitor({
           visitorCode: newCode,
-          visitorName: `${oldLead.leadFirstName} ${oldLead.leadLastName}`.trim(),
+          visitorName:
+            `${oldLead.leadFirstName} ${oldLead.leadLastName}`.trim(),
           visitorEmail: oldLead.leadEmail,
           visitorMobile: oldLead.leadPhone,
           visitorWhatsApp: oldLead.leadPhone || "",
@@ -1122,10 +1173,9 @@ if (newStatusId && oldStatusId !== newStatusId) {
           isActive: true,
         });
 
-
         const newFollowUp = {
           followUpDate: SiteVisitDate,
-          followUpStatus: 'Visit Not Yet',
+          followUpStatus: "Visit Not Yet",
           notes: leadNotes,
           followedUpById: oldLead.leadAssignedId || oldLead.leadCreatedById,
         };
@@ -1137,17 +1187,14 @@ if (newStatusId && oldStatusId !== newStatusId) {
 
     res.status(200).json({
       success: true,
-      message: 'Note added to lead history',
-      data: updatedLead.leadHistory.slice(-1)[0] // Return the latest history entry
+      message: "Note added to lead history",
+      data: updatedLead.leadHistory.slice(-1)[0], // Return the latest history entry
     });
-
   } catch (error) {
     console.error("Add Lead Note Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 // exports.getLeadNameByNumber =async (req,res) => {
 //   try {
@@ -1162,7 +1209,7 @@ if (newStatusId && oldStatusId !== newStatusId) {
 //   }
 // }
 
-// --- INDIAMART WEBHOOK: create a Lead from IndiaMART's lead-push payload ---
+// --- INDIAMART WEBHOOK: store the incoming IndiaMART payload in its own table ---
 exports.indiamartWebhook = async (req, res) => {
   try {
     const {
@@ -1178,83 +1225,120 @@ exports.indiamartWebhook = async (req, res) => {
     if (!UNIQUE_QUERY_ID || !SENDER_MOBILE) {
       return res.status(400).json({
         success: false,
-        message: 'UNIQUE_QUERY_ID and SENDER_MOBILE are required.',
+        message: "UNIQUE_QUERY_ID and SENDER_MOBILE are required.",
       });
     }
 
-    const existingByQueryId = await Lead.findOne({ leadExternalQueryId: UNIQUE_QUERY_ID });
+    const existingByQueryId = await IndiaMartLead.findOne({
+      externalQueryId: UNIQUE_QUERY_ID,
+    });
+
     if (existingByQueryId) {
       return res.status(200).json({
         success: true,
-        message: 'Lead already recorded for this query id.',
+        message: "IndiaMART webhook already recorded for this query id.",
         data: existingByQueryId,
       });
     }
 
-    const leadPhone = SENDER_MOBILE.toString().replace(/\D/g, '');
-    const existingByPhone = await Lead.findOne({ leadPhone });
-    if (existingByPhone) {
-      return res.status(200).json({
-        success: true,
-        message: 'Lead already exists for this mobile number.',
-        data: existingByPhone,
-      });
+    const normalizedPhone = SENDER_MOBILE.toString().replace(/\D/g, "");
+    const normalizedMessage = (QUERY_MESSAGE || "").trim();
+
+    let linkedLead = null;
+    if (normalizedPhone) {
+      linkedLead = await Lead.findOne({ leadPhone: normalizedPhone });
     }
 
-    let leadSource = await LeadSource.findOne({ leadSourceName: 'IndiaMART' });
-    if (!leadSource) {
-      leadSource = await LeadSource.create({ leadSourceCode: 'INDIAMART', leadSourceName: 'IndiaMART' });
-    }
-
-    const leadStatus = await LeadStatus.findOne({ leadStatustName: 'New' });
-
-    const looseNameRegex = (name) =>
-      new RegExp(`^${name.trim().replace(/\s+/g, '\\s*')}$`, 'i');
-
-    const city = SENDER_CITY
-      ? await City.findOne({ CityName: looseNameRegex(SENDER_CITY) })
-      : null;
-    const state = SENDER_STATE
-      ? await State.findOne({ StateName: looseNameRegex(SENDER_STATE) })
-      : null;
-
-    const nameParts = (SENDER_NAME || '').trim().split(/\s+/);
-    const leadFirstName = nameParts.shift() || 'IndiaMART Lead';
-    const leadLastName = nameParts.join(' ');
-
-    const newLead = new Lead({
-      leadFirstName,
-      leadLastName,
-      leadEmail: SENDER_EMAIL || '',
-      leadPhone,
-      leadDescription: QUERY_MESSAGE || '',
-      leadNotes: QUERY_MESSAGE || '',
-      leadCityId: city ? city._id : undefined,
-      leadStateId: state ? state._id : undefined,
-      leadSourceId: leadSource._id,
-      leadStatusId: leadStatus ? leadStatus._id : undefined,
-      leadExternalSource: 'IndiaMART',
-      leadExternalQueryId: UNIQUE_QUERY_ID,
-      leadHistory: [{
-        eventType: 'Lead Created',
-        details: 'Lead received via IndiaMART webhook',
-        leadStatusId: leadStatus ? leadStatus._id : undefined,
-      }],
+    const indiaMartLeadRecord = await IndiaMartLead.create({
+      externalQueryId: UNIQUE_QUERY_ID,
+      senderName: SENDER_NAME || "",
+      senderMobile: SENDER_MOBILE || "",
+      normalizedPhone,
+      senderEmail: SENDER_EMAIL || "",
+      queryMessage: normalizedMessage,
+      senderCity: SENDER_CITY || "",
+      senderState: SENDER_STATE || "",
+      source: "IndiaMART",
+      status: "received",
+      rawPayload: req.body,
+      leadId: linkedLead ? linkedLead._id : null,
     });
-
-    const savedLead = await newLead.save();
 
     res.status(201).json({
       success: true,
-      message: 'IndiaMART lead created successfully',
-      data: savedLead,
+      message: "IndiaMART webhook payload stored successfully",
+      data: indiaMartLeadRecord,
     });
-
   } catch (error) {
-    console.error('IndiaMART Webhook Error:', error);
+    console.error("IndiaMART Webhook Error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to process IndiaMART lead',
+      message: "Failed to process IndiaMART lead",
+      error: error.message,
+    });
+  }
+};
+
+exports.justdialWebhook = async (req, res) => {
+  try {
+    // Justdial parameters typically pass in lowercase formats
+    const { leadid, name, mobile, email, category, city: jdCity } = req.body;
+
+    if (!leadid || !mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "leadid and mobile are required.",
+      });
+    }
+
+    const formattedQueryId = `JD-${leadid}`;
+    const existingByQueryId = await JustdialLead.findOne({
+      externalQueryId: formattedQueryId,
+    });
+
+    if (existingByQueryId) {
+      return res.status(200).json({
+        success: true,
+        message: "Justdial webhook already recorded for this transaction id.",
+        data: existingByQueryId,
+      });
+    }
+
+    const leadPhone = mobile.toString().replace(/\D/g, "");
+    const generatedMessage = category
+      ? `Inquiry for category: ${category.trim()}`
+      : "Inquiry via Justdial";
+
+    let linkedLead = null;
+    if (leadPhone) {
+      linkedLead = await Lead.findOne({ leadPhone });
+    }
+
+    const justdialLeadRecord = await JustdialLead.create({
+      externalQueryId: formattedQueryId,
+      leadId: linkedLead ? linkedLead._id : null,
+      name: name || "",
+      mobile: mobile || "",
+      normalizedPhone: leadPhone,
+      email: email || "",
+      category: category || "",
+      city: jdCity || "",
+      message: generatedMessage,
+      source: "Justdial",
+      status: "received",
+      rawPayload: req.body,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Justdial webhook payload stored successfully",
+      data: justdialLeadRecord,
+    });
+  } catch (error) {
+    console.error("Justdial Webhook Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process Justdial lead",
       error: error.message,
     });
   }
@@ -1277,7 +1361,7 @@ exports.getLeadNameByNumber = async (req, res) => {
       success: true,
       data: {
         leadFirstName: lead.leadFirstName,
-        leadLastName:lead.leadLastName,
+        leadLastName: lead.leadLastName,
         leadPhone: lead.leadPhone,
       },
     });

@@ -18,12 +18,28 @@ const Notification = require("./models/masterModels/Notification");
 const CallLogController = require("./controllers/masterControllers/callLogControllers");
 const LeadController = require("./controllers/masterControllers/LeadControllers");
 const IvrController = require("./controllers/masterControllers/ivrController");
+const WhatsAppController = require("./controllers/masterControllers/WhatsAppController");
+const verifyWhatsAppSignature = require("./middlewares/whatsappSignature");
+const startWhatsAppWorker = require("./queues/whatsappWorker");
+const socketRegistry = require("./utils/socketRegistry");
 const upload = multer({ dest: "uploads/" });
 const googleapis = require("googleapis");
 const app = express();
 const PORT = 8004;
 
-app.use(express.json({ limit: "50mb" }));
+app.use(
+  express.json({
+    limit: "50mb",
+    // Preserve the raw bytes for WhatsApp requests only, so
+    // middlewares/whatsappSignature.js can HMAC-verify the exact payload
+    // Meta signed before body-parser re-serializes it.
+    verify: (req, res, buf) => {
+      if (req.originalUrl.startsWith("/api/whatsapp/webhook")) {
+        req.rawBody = buf;
+      }
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use(
@@ -62,6 +78,17 @@ app.use(
 app.get("/api/calls/fetch-all", CallLogController.fetchAllCallLogs);
 // app.post('/api/fetchCallLogs', CallLogController.handleTelecmiWebhook);
 app.post("/api/fetchCallLogs", IvrController.saveIvrWebhook); // Updated to use the new IVR controller
+
+// WhatsApp Cloud API webhook: mounted directly (not via mainRoutes) since the
+// POST handler depends on req.rawBody captured by the express.json() verify
+// callback above, and must stay ahead of the generic /api routers.
+app.get("/api/whatsapp/webhook", WhatsAppController.verifyWebhook);
+app.post(
+  "/api/whatsapp/webhook",
+  verifyWhatsAppSignature,
+  WhatsAppController.handleWebhookEvent,
+);
+
 app.use("/api", masterRoutes);
 app.use("/api", mainRoutes);
 
@@ -114,6 +141,11 @@ const io = new Server(server, {
     origin: "*",
   },
 });
+
+// Make io reachable from request handlers (req.app.get("socketio")) and from
+// BullMQ workers/services via utils/socketRegistry.js.
+app.set("socketio", io);
+socketRegistry.setIo(io);
 
 // io.on("connection", (socket) => {
 //   console.log("⚡ A client connected:", socket.id);
@@ -288,8 +320,9 @@ async function main() {
     );
     await registerScheduledJobs();
     console.log("✅ MongoDB successfully connected");
-    // Start BullMQ worker once at server boot (NOT per socket connection)
+    // Start BullMQ workers once at server boot (NOT per socket connection)
     startScheduledWorker(io);
+    startWhatsAppWorker();
 
     const dbName = mongoose.connection.db.databaseName;
     const collections = await mongoose.connection.db

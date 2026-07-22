@@ -122,6 +122,7 @@ router.post(
 );
 router.post("/Lead/getLeadNameByNumber",LeadControllers.getLeadNameByNumber)
 router.post("/Lead/indiamart-webhook", LeadControllers.indiamartWebhook);
+router.post("/Lead/justdial-webhook", LeadControllers.justdialWebhook);
 
 
 //ReportControllers
