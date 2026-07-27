@@ -9,25 +9,33 @@ exports.verifyLogin = async (req, res) => {
     const { EmployeeCode, password } = req.body;
 
     // Find user
-    const user = await Employee.findOne({ EmployeeCode })
+    const user = await Employee.findOne({ EmployeeCode }).populate('roleId', 'RoleName')
 
     if (!user) {
       return res.status(400).json({ message: "Employee Code does not exist" });
     }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+
+    // Employee passwords were historically stored in plaintext (see
+    // EmployeeControllers create/update). Try a real bcrypt compare first;
+    // if that fails, fall back to a plaintext match and transparently
+    // upgrade the stored value to a bcrypt hash so it self-heals over time.
+    let isMatch = await bcrypt.compare(password, user.password).catch(() => false);
+    if (!isMatch && password === user.password) {
+      isMatch = true;
+      user.password = await bcrypt.hash(password, 10);
     }
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid password" });
     }
+
+    const roleName = user.roleId?.RoleName || 'Agent';
 
     // ✅ Generate JWT token
     const token = jwt.sign(
       {
         _id: user._id,
         EmployeeCode: user.EmployeeCode,
-        role: user.role
+        role: roleName
       },
       process.env.JWT_SECRET || "9@B!7eD#v^3Qp2LmZ$Wk1X%tRg6N*oYu8hGlDd4Ci",
       { expiresIn: "7d" }
@@ -56,9 +64,8 @@ exports.verifyLogin = async (req, res) => {
         _id: user._id,
         EmployeeName: user.EmployeeName,
         EmployeeCode: user.EmployeeCode,
-        password: user.password,
         lastLogin: lastLoginFormatted,
-        role: user.employeeRole,
+        role: roleName,
         token,
         tokenExpiry: "7 days",
       },
