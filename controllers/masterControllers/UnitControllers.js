@@ -4,7 +4,7 @@ const Unit = require("../../models/masterModels/Unit");
 exports.createUnit = async (req, res) => {
   try {
     // Added siteId to destructuring
-    const { siteId, UnitName, UnitCode, UnitType, UnitLocation, addressLine, geoLocation, description } = req.body;
+    const { siteId, UnitName, UnitCode, unitType, UnitLocation, addressLine, geoLocation, description } = req.body;
 
     if (!UnitCode) {
       return res.status(400).json({ message: "unitCode is required." });
@@ -19,7 +19,7 @@ exports.createUnit = async (req, res) => {
       siteId, // Added siteId here
       UnitName,
       UnitCode,
-      UnitType,
+      unitType,
       UnitLocation,
       addressLine,
       geoLocation,
@@ -72,15 +72,15 @@ exports.getUnitById = async (req, res) => {
 exports.updateUnit = async (req, res) => {
   try {
     // Added siteId to destructuring
-    const { siteId, UnitName, UnitCode, UnitType, UnitLocation, addressLine, geoLocation, description } = req.body;
+    const { siteId, UnitName, UnitCode, unitType, UnitLocation, addressLine, geoLocation, description } = req.body;
 
     const updated = await Unit.findByIdAndUpdate(
-      req.body.id,
-      { 
+      req.body._id,
+      {
         siteId, // Added siteId here
         UnitName, 
         UnitCode, 
-        UnitType, 
+        unitType, 
         UnitLocation, 
         addressLine, 
         geoLocation, 

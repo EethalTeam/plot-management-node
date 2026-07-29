@@ -79,7 +79,7 @@ module.exports = {
     const redisClient = await getClient();
     if (!redisClient || keys.length === 0) return null;
 
-    return redisClient.del(keys.map(normalizeKey));
+    return redisClient.del(...keys.map(normalizeKey));
   },
 
   delPattern: async (pattern) => {
@@ -89,15 +89,17 @@ module.exports = {
     const namespacedPattern = normalizeKey(pattern);
 
     const keys = [];
-    for await (const key of redisClient.scanIterator({
+    // scanIterator yields a batch (array of keys) per cursor step, not one
+    // key at a time, so each batch has to be spread into the accumulator.
+    for await (const batch of redisClient.scanIterator({
       MATCH: namespacedPattern,
       COUNT: 100,
     })) {
-      keys.push(key);
+      keys.push(...batch);
     }
 
     if (keys.length === 0) return 0;
 
-    return redisClient.del(keys);
+    return redisClient.del(...keys);
   },
 };

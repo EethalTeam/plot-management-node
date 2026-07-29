@@ -51,7 +51,7 @@ exports.createCompany = async (req, res) => {
 
         res.status(200).json({
             message: 'Company created successfully',
-            data: leadsource
+            data: company
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

@@ -286,7 +286,7 @@ exports.updatePlotStatus = async (req, res) => {
     }
 
     const existingPlotEntry = visitor.plots.find(
-      (entry) => entry._id.toString() === _id
+      (entry) => entry.plotId?.toString() === _id
     );
 
     if (existingPlotEntry) {
@@ -301,7 +301,7 @@ exports.updatePlotStatus = async (req, res) => {
       }
     } else {
       visitor.plots.push({
-        _id,
+        plotId: _id,
         statusId: statusToSet,
         timestamp: dateToUse || new Date()
       });
