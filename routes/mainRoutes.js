@@ -11,6 +11,7 @@ const DashboardControllers = require("../controllers/mainControllers/DashBoardCo
 const upload = require("../utils/upload");
 const ReportControllers = require('../controllers/mainControllers/ReportControllers')
 const BackupControllers = require('../controllers/mainControllers/BackupControllers')
+const PaymentControllers = require('../controllers/mainControllers/PaymentControllers')
 
 router.post("/Log/getAllLogs", LogControllers.getAllLogs);
 router.post("/Log/getFilteredLogs", LogControllers.getFilteredLogs);
@@ -141,5 +142,14 @@ router.post("/Report/getVisitorReports",ReportControllers.getVisitorReports)
 router.post("/Backup/runBackup", BackupControllers.runBackup)
 router.post("/Backup/listBackups", BackupControllers.listBackups)
 router.post("/Backup/restoreBackup", BackupControllers.restoreBackup)
+
+//PaymentControllers
+router.post("/Payment/createPlan", PaymentControllers.createPaymentPlan)
+router.post("/Payment/getAllPlans", PaymentControllers.getAllPaymentPlans)
+router.post("/Payment/getPlanByPlot", PaymentControllers.getPaymentPlanByPlot)
+router.post("/Payment/getPlanById", PaymentControllers.getPaymentPlanById)
+router.post("/Payment/recordPayment", PaymentControllers.recordPayment)
+router.post("/Payment/getPlanTransactions", PaymentControllers.getPlanTransactions)
+router.post("/Payment/deletePlan", PaymentControllers.deletePaymentPlan)
 
 module.exports = router;

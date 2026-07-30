@@ -2,6 +2,8 @@
 const { Worker } = require("bullmq");
 const { connection } = require("./scheduledQueue");
 const CronJobControllers = require("../controllers/mainControllers/CronJobControllers");
+const WhatsAppReminderControllers = require("../controllers/mainControllers/WhatsAppReminderControllers");
+const PaymentControllers = require("../controllers/mainControllers/PaymentControllers");
 
 function startScheduledWorker(io) {
   const worker = new Worker(
@@ -25,6 +27,12 @@ function startScheduledWorker(io) {
 
         case "monthly-payroll":
           return CronJobControllers.processMonthlyPayroll();
+
+        case "whatsapp-site-visit-reminders":
+          return WhatsAppReminderControllers.processSiteVisitReminders();
+
+        case "payment-overdue-check":
+          return PaymentControllers.markOverdueInstallments();
 
         default:
           throw new Error(`Unknown job: ${job.name}`);

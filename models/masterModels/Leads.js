@@ -159,6 +159,16 @@ const LeadSchema = new mongoose.Schema(
       enum: ["unknown", "opted_in", "opted_out"],
       default: "unknown",
     },
+    // Tracks which automated site-visit WhatsApp messages have already gone
+    // out for the *current* SiteVisitDate, so the reminder job never sends
+    // the same message twice. Cleared automatically whenever SiteVisitDate
+    // changes (see WhatsAppReminderControllers.js).
+    siteVisitReminders: {
+      forDate: { type: Date },
+      confirmationSentAt: { type: Date },
+      dayBeforeSentAt: { type: Date },
+      hoursBeforeSentAt: { type: Date },
+    },
   },
   {
     timestamps: true,

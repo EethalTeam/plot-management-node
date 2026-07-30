@@ -72,6 +72,30 @@ async function registerScheduledJobs() {
     },
   );
 
+  // Checks for leads with an upcoming SiteVisitDate and sends WhatsApp
+  // confirmation/reminder templates — see WhatsAppReminderControllers.js.
+  await scheduledQueue.add(
+    "whatsapp-site-visit-reminders",
+    {},
+    {
+      ...defaults,
+      jobId: "whatsapp-site-visit-reminders",
+      repeat: { every: 15 * 60 * 1000 },
+    },
+  );
+
+  // Flips any payment installment whose due date has passed without full
+  // payment to "overdue" — see PaymentControllers.markOverdueInstallments.
+  await scheduledQueue.add(
+    "payment-overdue-check",
+    {},
+    {
+      ...defaults,
+      jobId: "payment-overdue-check",
+      repeat: { cron: "0 6 * * *", tz: "Asia/Kolkata" },
+    },
+  );
+
   console.log("[BullMQ] Scheduled jobs registered");
 }
 

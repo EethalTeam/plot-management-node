@@ -103,6 +103,8 @@ app.post("/api/test-bullmq-job", async (req, res) => {
     "session-pending-check",
     "monthly-billing",
     "monthly-payroll",
+    "whatsapp-site-visit-reminders",
+    "payment-overdue-check",
   ];
 
   if (!validJobs.includes(jobName)) {
