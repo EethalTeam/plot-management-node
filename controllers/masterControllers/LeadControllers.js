@@ -15,6 +15,8 @@ const path = require("path");
 const fs = require("fs"); // For file system operations (e.g., deleting files)
 const { default: mongoose } = require("mongoose");
 const e = require("cors");
+const { recordActivity } = require("../mainControllers/ActivityLogControllers");
+const { getActorId } = require("../../utils/getActor");
 
 const DOC_BASE_PATH = path.join(__dirname, "..", "..", "lead_documents");
 
@@ -153,6 +155,16 @@ exports.createLead = async (req, res) => {
 
     const savedLead = await newLead.save();
 
+    const savedLeadName = `${savedLead.leadFirstName} ${savedLead.leadLastName}`.trim();
+    await recordActivity({
+      actorId: getActorId(req),
+      module: "Lead",
+      action: "created",
+      entityId: savedLead._id,
+      entityLabel: savedLeadName,
+      description: `Lead "${savedLeadName}" created`,
+    });
+
     res.status(201).json({
       success: true,
       message: "Lead created successfully with documents",
@@ -172,6 +184,86 @@ exports.createLead = async (req, res) => {
       message: "Failed to create lead",
       error: error.message,
     });
+  }
+};
+
+// Bulk-create from an already-parsed, already-mapped array of row objects —
+// column mapping/parsing happens client-side (see ImportLeadsDialog.jsx), so
+// unlike importLeads() below this isn't tied to any one source file's exact
+// header names. leadSourceId/leadStatusId apply to the whole batch rather
+// than being guessed per row. Each row is isolated in its own try/catch so
+// one bad row (duplicate phone, etc.) doesn't fail the rest of the batch.
+exports.bulkImportLeads = async (req, res) => {
+  try {
+    const { leads, leadSourceId, leadStatusId, leadCreatedById } = req.body;
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ success: false, message: "leads array is required" });
+    }
+    if (!leadSourceId || !leadStatusId) {
+      return res.status(400).json({ success: false, message: "leadSourceId and leadStatusId are required for the batch" });
+    }
+
+    const statusDoc = await LeadStatus.findById(leadStatusId);
+    if (!statusDoc) {
+      return res.status(400).json({ success: false, message: "Invalid Lead Status ID provided." });
+    }
+
+    const summary = { created: 0, skipped: 0, errors: [] };
+
+    for (let i = 0; i < leads.length; i += 1) {
+      const row = leads[i] || {};
+      const rowNumber = i + 1;
+      const phone = (row.leadPhone || "").toString().trim();
+
+      if (!phone) {
+        summary.skipped += 1;
+        summary.errors.push({ row: rowNumber, reason: "Missing phone number" });
+        continue;
+      }
+
+      try {
+        const existing = await Lead.findOne({ leadPhone: phone });
+        if (existing) {
+          summary.skipped += 1;
+          summary.errors.push({ row: rowNumber, reason: `Phone ${phone} already exists` });
+          continue;
+        }
+
+        await Lead.create({
+          leadFirstName: row.leadFirstName || "",
+          leadLastName: row.leadLastName || "",
+          leadEmail: row.leadEmail || undefined,
+          leadPhone: phone,
+          leadAltPhone: row.leadAltPhone || undefined,
+          leadPotentialValue: row.leadPotentialValue ? Number(row.leadPotentialValue) || 0 : 0,
+          leadNotes: row.leadNotes || undefined,
+          leadStatusId,
+          leadSourceId,
+          leadCreatedById: leadCreatedById || undefined,
+          leadHistory: [
+            {
+              eventType: "Lead Created",
+              details: `Imported in bulk with status: ${statusDoc.leadStatustName}`,
+              leadStatusId,
+            },
+          ],
+        });
+
+        summary.created += 1;
+      } catch (rowError) {
+        summary.skipped += 1;
+        summary.errors.push({ row: rowNumber, reason: rowError.message });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Imported ${summary.created} of ${leads.length} leads`,
+      data: summary,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -440,6 +532,24 @@ exports.updateLead = async (req, res) => {
       runValidators: true,
     });
 
+    if (
+      updatedData.leadStatusId &&
+      updatedData.leadStatusId.toString() !== oldLead.leadStatusId?.toString()
+    ) {
+      const oldLeadName = `${oldLead.leadFirstName} ${oldLead.leadLastName}`.trim();
+      await recordActivity({
+        actorId: getActorId(req),
+        module: "Lead",
+        action: "status_changed",
+        entityId: leadId,
+        entityLabel: oldLeadName,
+        changeField: "leadStatusId",
+        oldValue: oldLeadStatusName,
+        newValue: newLeadStatusName,
+        description: `${employeeName || "Someone"} changed lead "${oldLeadName}" status from ${oldLeadStatusName} to ${newLeadStatusName}`,
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: "Lead updated successfully",
@@ -498,6 +608,18 @@ exports.assignLead = async (req, res) => {
       },
       { new: true, runValidators: true },
     ).populate("leadAssignedId", "EmployeeName");
+
+    const assignedLeadName = `${lead.leadFirstName} ${lead.leadLastName}`.trim();
+    await recordActivity({
+      actorId: getActorId(req),
+      module: "Lead",
+      action: "assigned",
+      entityId: leadId,
+      entityLabel: assignedLeadName,
+      changeField: "leadAssignedId",
+      newValue: assignedemployee.EmployeeName,
+      description: `${employeeName || "Someone"} assigned lead "${assignedLeadName}" to ${assignedemployee.EmployeeName}`,
+    });
 
     // --- ASSIGNMENT NOTIFICATION ---
     const io = req.app.get("socketio");

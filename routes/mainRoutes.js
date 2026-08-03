@@ -12,11 +12,11 @@ const upload = require("../utils/upload");
 const ReportControllers = require('../controllers/mainControllers/ReportControllers')
 const BackupControllers = require('../controllers/mainControllers/BackupControllers')
 const PaymentControllers = require('../controllers/mainControllers/PaymentControllers')
+const DealControllers = require('../controllers/mainControllers/DealControllers')
+const EmailControllers = require('../controllers/mainControllers/EmailControllers')
+const MeetingControllers = require('../controllers/mainControllers/MeetingControllers')
 
-router.post("/Log/getAllLogs", LogControllers.getAllLogs);
-router.post("/Log/getFilteredLogs", LogControllers.getFilteredLogs);
-router.post("/Log/createLog", LogControllers.logCreate);
-router.post("/Log/logCountChange", LogControllers.logCountChange);
+router.post("/Log/getActivityLog", LogControllers.getActivityLog);
 
 //MenuControllers
 router.post("/Menu/createMenu", MenuControllers.createMenu);
@@ -100,8 +100,10 @@ router.post(
 router.post("/DashBoard/getCallStatusReport",DashboardControllers.getCallStatusReport);
 router.post("/DashBoard/getLeadFollowup",DashboardControllers.getLeadFollowup);
 router.post("/DashBoard/getVisitorFollowup",DashboardControllers.getVisitorFollowup);
+router.post("/DashBoard/getSiteVisitAgenda",DashboardControllers.getSiteVisitAgenda);
 
 router.post("/Lead/getAllLeads", LeadControllers.getAllLeads);
+router.post("/Lead/bulkImportLeads", LeadControllers.bulkImportLeads);
 router.post(
   "/Lead/createLead",
   upload.array("leadFiles", 5),
@@ -131,6 +133,7 @@ router.post("/Lead/justdial-webhook", LeadControllers.justdialWebhook);
 // router.post("/Report/AgentSummary",ReportControllers.AgentSummary)
 // router.post("/Report/AgentProgress",ReportControllers.AgentProgress)
 router.post("/Report/leadSourceSummary",ReportControllers.leadSourceSummary)
+router.post("/Report/getMonthlyPerformance",ReportControllers.getMonthlyPerformance)
 router.post("/Report/SiteDistribution",ReportControllers.siteDistribution)
 // router.post("/Report/WeeklyLeadVelocity",ReportControllers.WeeklyLeadVelocity)
 router.post("/Report/getAllAvailablePlots",ReportControllers.getAllAvailablePlots)
@@ -151,5 +154,27 @@ router.post("/Payment/getPlanById", PaymentControllers.getPaymentPlanById)
 router.post("/Payment/recordPayment", PaymentControllers.recordPayment)
 router.post("/Payment/getPlanTransactions", PaymentControllers.getPlanTransactions)
 router.post("/Payment/deletePlan", PaymentControllers.deletePaymentPlan)
+
+//DealControllers
+router.post("/Deal/createDeal", DealControllers.createDeal)
+router.post("/Deal/getAllDeals", DealControllers.getAllDeals)
+router.post("/Deal/updateDeal", DealControllers.updateDeal)
+router.post("/Deal/updateDealStage", DealControllers.updateDealStage)
+router.post("/Deal/deleteDeal", DealControllers.deleteDeal)
+router.post("/Deal/getQuotation", DealControllers.getQuotation)
+router.post("/Deal/saveQuotation", DealControllers.saveQuotation)
+router.post("/Deal/getDealDocuments", DealControllers.getDealDocuments)
+router.post("/Deal/addDealDocument", upload.single("dealFile"), DealControllers.addDealDocument)
+router.post("/Deal/deleteDealDocument", DealControllers.deleteDealDocument)
+
+//EmailControllers
+router.post("/Email/sendEmail", EmailControllers.sendEmail)
+router.post("/Email/getEmailHistory", EmailControllers.getEmailHistory)
+
+router.post("/Meeting/getAllMeetings", MeetingControllers.getAllMeetings)
+router.post("/Meeting/createMeeting", MeetingControllers.createMeeting)
+router.post("/Meeting/updateAttendeeRsvp", MeetingControllers.updateAttendeeRsvp)
+router.post("/Meeting/updateReminder", MeetingControllers.updateReminder)
+router.post("/Meeting/cancelMeeting", MeetingControllers.cancelMeeting)
 
 module.exports = router;

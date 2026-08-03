@@ -7,6 +7,8 @@ const Visitor = require('../../models/masterModels/Visitor')
 const Plot = require('../../models/masterModels/Plot')
 const Status = require("../../models/masterModels/Status");
 const TelecmiLog = require("../../models/masterModels/TeleCMICallLog");
+const PaymentPlan = require("../../models/masterModels/PaymentPlan");
+const PaymentTransaction = require("../../models/masterModels/PaymentTransaction");
 
 
 // exports.getAllReport = async(req,res) => {
@@ -353,7 +355,12 @@ exports.leadSourceSummary = async (req, res) => {
       {
         $group: {
           _id: "$leadSourceId",
-          value: { $sum: 1 }
+          value: { $sum: 1 },
+          // Real ask/potential value per source — there's no lead->booking
+          // link in the data model (PaymentPlan references plotId/visitorId,
+          // not leadId), so this is the only per-source deal-size figure that
+          // can honestly be computed; conversion/bookings-by-source can't be.
+          totalPotentialValue: { $sum: { $ifNull: ["$leadPotentialValue", 0] } }
         }
       },
       {
@@ -369,7 +376,8 @@ exports.leadSourceSummary = async (req, res) => {
         $project: {
           _id: 0,
           name: "$source.leadSourceName",
-          value: 1
+          value: 1,
+          avgPotentialValue: { $cond: [{ $gt: ["$value", 0] }, { $divide: ["$totalPotentialValue", "$value"] }, 0] }
         }
       },
       { $sort: { value: -1 } }
@@ -385,6 +393,82 @@ exports.leadSourceSummary = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+// Last `months` (default 6) of: new leads, site visits (Lead status ==
+// "Site Visit"), bookings (PaymentPlans created that month), and revenue
+// (PaymentTransactions collected that month) — bookings/revenue come from
+// the Payments feature since Lead has no "booked" status of its own and
+// PaymentPlan is the actual real signal that a sale happened.
+exports.getMonthlyPerformance = async (req, res) => {
+  try {
+    const { months = 6, siteId } = req.body || {};
+    const monthCount = Math.max(1, Math.min(24, Number(months) || 6));
+    const now = new Date();
+    const rangeStart = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1), 1);
+
+    const leadMatch = { createdAt: { $gte: rangeStart } };
+    if (siteId) leadMatch.leadSiteId = new mongoose.Types.ObjectId(siteId);
+
+    const leadAgg = await Lead.aggregate([
+      { $match: leadMatch },
+      { $lookup: { from: "leadstatuses", localField: "leadStatusId", foreignField: "_id", as: "statusDoc" } },
+      { $unwind: { path: "$statusDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          newLeads: { $sum: 1 },
+          siteVisits: { $sum: { $cond: [{ $eq: ["$statusDoc.leadStatustName", "Site Visit"] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    const planAgg = await PaymentPlan.aggregate([
+      { $match: { createdAt: { $gte: rangeStart } } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, bookings: { $sum: 1 } } }
+    ]);
+
+    const revenueAgg = await PaymentTransaction.aggregate([
+      { $match: { paymentDate: { $gte: rangeStart } } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$paymentDate" } }, revenue: { $sum: "$amount" } } }
+    ]);
+
+    const byMonth = {};
+    for (let i = 0; i < monthCount; i += 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - i), 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      byMonth[key] = {
+        month: d.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+        newLeads: 0,
+        siteVisits: 0,
+        bookings: 0,
+        revenue: 0
+      };
+    }
+    leadAgg.forEach((r) => {
+      if (byMonth[r._id]) {
+        byMonth[r._id].newLeads = r.newLeads;
+        byMonth[r._id].siteVisits = r.siteVisits;
+      }
+    });
+    planAgg.forEach((r) => {
+      if (byMonth[r._id]) byMonth[r._id].bookings = r.bookings;
+    });
+    revenueAgg.forEach((r) => {
+      if (byMonth[r._id]) byMonth[r._id].revenue = r.revenue;
+    });
+
+    const data = Object.keys(byMonth)
+      .sort()
+      .map((key) => {
+        const m = byMonth[key];
+        return { ...m, conversionRate: m.newLeads > 0 ? (m.bookings / m.newLeads) * 100 : 0 };
+      });
+
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

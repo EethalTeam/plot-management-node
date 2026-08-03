@@ -569,8 +569,10 @@ exports.getLeadFollowup = async (req, res) => {
       { $unwind: "$status" },
 
       {
+        // leadStatustName (sic) is the real field name on LeadStatus — see
+        // services/api/masterForms.js on the frontend for the same typo note.
         $match: {
-          "status.leadStatusName": "Follow Up",
+          "status.leadStatustName": "Follow Up",
           FollowDate: { $gte: start, $lte: end },
         },
       },
@@ -584,16 +586,31 @@ exports.getLeadFollowup = async (req, res) => {
       });
     }
 
-    pipeline.push({
-      $project: {
-        leadFirstName: 1,
-        leadLastName: 1,
-        leadPhone: 1,
-        FollowDate: 1,
-        status: "$status.leadStatusName",
-        leadNotes: 1,
+    pipeline.push(
+      {
+        $lookup: { from: "sites", localField: "leadSiteId", foreignField: "_id", as: "site" },
       },
-    });
+      {
+        $lookup: { from: "units", localField: "leadUnitId", foreignField: "_id", as: "unit" },
+      },
+      {
+        $lookup: { from: "leadsources", localField: "leadSourceId", foreignField: "_id", as: "source" },
+      },
+      {
+        $project: {
+          leadFirstName: 1,
+          leadLastName: 1,
+          leadPhone: 1,
+          FollowDate: 1,
+          leadStatusId: 1,
+          status: "$status.leadStatustName",
+          leadNotes: 1,
+          siteName: { $arrayElemAt: ["$site.sitename", 0] },
+          unitName: { $arrayElemAt: ["$unit.UnitName", 0] },
+          sourceName: { $arrayElemAt: ["$source.leadSourceName", 0] },
+        },
+      },
+    );
 
     const data = await Lead.aggregate(pipeline);
 
@@ -753,6 +770,65 @@ exports.getVisitorFollowup = async (req, res) => {
 
   } catch (err) {
     console.error("Visitor Dashboard Follow-up Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Site visits scheduled this week — sourced from Lead.SiteVisitDate rather
+// than Visitor.followUps, since a follow-up entry there has no plot/site
+// attached (no plotId on that subdocument) while a Lead already carries both
+// SiteVisitDate and leadSiteId together.
+exports.getSiteVisitAgenda = async (req, res) => {
+  try {
+    const { role, EmployeeId } = req.body;
+    const indiaTz = "Asia/Kolkata";
+
+    const start = dayjs().tz(indiaTz).startOf("day").toDate();
+    const end = dayjs(start).tz(indiaTz).add(7, "day").endOf("day").toDate();
+
+    const pipeline = [
+      { $match: { SiteVisitDate: { $gte: start, $lte: end } } },
+    ];
+
+    if (role === "AGENT" && EmployeeId) {
+      pipeline.push({
+        $match: { leadAssignedId: new mongoose.Types.ObjectId(EmployeeId) },
+      });
+    }
+
+    pipeline.push(
+      { $lookup: { from: "sites", localField: "leadSiteId", foreignField: "_id", as: "site" } },
+      { $lookup: { from: "units", localField: "leadUnitId", foreignField: "_id", as: "unit" } },
+      { $lookup: { from: "employees", localField: "leadAssignedId", foreignField: "_id", as: "assignee" } },
+      { $lookup: { from: "leadstatuses", localField: "leadStatusId", foreignField: "_id", as: "status" } },
+      {
+        $project: {
+          leadFirstName: 1,
+          leadLastName: 1,
+          SiteVisitDate: 1,
+          status: { $arrayElemAt: ["$status.leadStatustName", 0] },
+          siteName: { $arrayElemAt: ["$site.sitename", 0] },
+          unitName: { $arrayElemAt: ["$unit.UnitName", 0] },
+          assigneeName: { $arrayElemAt: ["$assignee.EmployeeName", 0] },
+        },
+      },
+      { $sort: { SiteVisitDate: 1 } },
+    );
+
+    const data = await Lead.aggregate(pipeline);
+
+    res.status(200).json({
+      data,
+      debug: {
+        message: "Site visit agenda fetched using IST timezone.",
+        queryRangeIST: {
+          start: dayjs(start).tz(indiaTz).format("YYYY-MM-DD hh:mm:ss A"),
+          end: dayjs(end).tz(indiaTz).format("YYYY-MM-DD hh:mm:ss A"),
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Site Visit Agenda Error:", err);
     res.status(500).json({ message: err.message });
   }
 };

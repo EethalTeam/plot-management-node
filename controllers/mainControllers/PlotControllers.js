@@ -2,6 +2,8 @@ const Plot = require("../../models/masterModels/Plot");
 const Status = require('../../models/masterModels/Status');
 const Unit = require('../../models/masterModels/Unit');
 const Visitor = require('../../models/masterModels/Visitor');
+const { recordActivity } = require("./ActivityLogControllers");
+const { getActorId } = require("../../utils/getActor");
 
 // Create Plot
 exports.createPlot = async (req, res) => {
@@ -144,6 +146,8 @@ const STATUS_IDS = {
   Interested: "689343a2be2ae7f865e038a1",
   Visited: "68947ddcbb5588af59c8a1eb"
 };
+
+const STATUS_NAMES = Object.fromEntries(Object.entries(STATUS_IDS).map(([name, id]) => [id, name]));
 
 exports.updatePlotStatus = async (req, res) => {
   try {
@@ -310,6 +314,16 @@ exports.updatePlotStatus = async (req, res) => {
     await plot.save();
     await visitor.save();
     await plot.populate("statusId");
+
+    await recordActivity({
+      actorId: getActorId(req),
+      module: "Plot",
+      action: "status_changed",
+      entityId: plot._id,
+      entityLabel: plot.plotNumber,
+      newValue: STATUS_NAMES[statusToSet] ?? statusToSet,
+      description: `Plot ${plot.plotNumber} marked ${STATUS_NAMES[statusToSet] ?? statusToSet} (${visitor.visitorName})`,
+    });
 
     return res.status(200).json({
       success: true,

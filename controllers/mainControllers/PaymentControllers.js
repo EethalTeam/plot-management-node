@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const PaymentPlan = require("../../models/masterModels/PaymentPlan");
 const PaymentTransaction = require("../../models/masterModels/PaymentTransaction");
+const { recordActivity } = require("./ActivityLogControllers");
+const { getActorId } = require("../../utils/getActor");
 
 const PLAN_POPULATE = [
   { path: "plotId", select: "plotNumber plotCode siteId", populate: { path: "siteId", select: "sitename" } },
@@ -71,6 +73,15 @@ exports.createPaymentPlan = async (req, res) => {
     recomputePlanStatus(plan);
     await plan.save();
     await plan.populate(PLAN_POPULATE);
+
+    await recordActivity({
+      actorId: getActorId(req),
+      module: "Payment",
+      action: "plan_created",
+      entityId: plan._id,
+      entityLabel: plan.plotId?.plotNumber ?? plan._id.toString(),
+      description: `Payment plan created for plot ${plan.plotId?.plotNumber ?? ""} (${plan.visitorId?.visitorName ?? "visitor"}) — total ${plan.totalAmount}`,
+    });
 
     res.status(201).json({ success: true, message: "Payment plan created", data: plan });
   } catch (error) {
@@ -175,6 +186,17 @@ exports.recordPayment = async (req, res) => {
     });
 
     await plan.populate(PLAN_POPULATE);
+
+    await recordActivity({
+      actorId: getActorId(req),
+      module: "Payment",
+      action: "payment_recorded",
+      entityId: plan._id,
+      entityLabel: plan.plotId?.plotNumber ?? plan._id.toString(),
+      newValue: amount,
+      description: `Payment of ${amount} recorded for plot ${plan.plotId?.plotNumber ?? ""} (${plan.visitorId?.visitorName ?? "visitor"})`,
+    });
+
     res.status(201).json({ success: true, message: "Payment recorded", data: { plan, transaction } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -197,10 +219,20 @@ exports.deletePaymentPlan = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(_id)) {
       return res.status(400).json({ success: false, message: "Invalid ID" });
     }
-    const plan = await PaymentPlan.findByIdAndUpdate(_id, { isActive: false }, { new: true });
+    const plan = await PaymentPlan.findByIdAndUpdate(_id, { isActive: false }, { new: true }).populate(PLAN_POPULATE);
     if (!plan) {
       return res.status(404).json({ success: false, message: "Payment plan not found" });
     }
+
+    await recordActivity({
+      actorId: getActorId(req),
+      module: "Payment",
+      action: "plan_deleted",
+      entityId: plan._id,
+      entityLabel: plan.plotId?.plotNumber ?? plan._id.toString(),
+      description: `Payment plan removed for plot ${plan.plotId?.plotNumber ?? ""}`,
+    });
+
     res.status(200).json({ success: true, message: "Payment plan removed" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
