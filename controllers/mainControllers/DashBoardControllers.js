@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Lead = require("../../models/masterModels/Leads");
 const Visitor = require('../../models/masterModels/Visitor')
 const Callog = require("../../models/masterModels/TeleCMICallLog");
+const PaymentPlan = require("../../models/masterModels/PaymentPlan");
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 dayjs.extend(utc);
@@ -830,5 +831,257 @@ exports.getSiteVisitAgenda = async (req, res) => {
   } catch (err) {
     console.error("Site Visit Agenda Error:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ---------------------------------------------------------------------
+// Pipeline Overview stats (Dashboard KPI strip / trend / stage funnel /
+// source breakdown) — replaces what was previously 100% hardcoded mock
+// data on the frontend (see Ivr-Version/src/services/api/stats.js).
+//
+// Definitions deliberately reused from elsewhere in this codebase rather
+// than invented fresh, so the Dashboard doesn't quietly disagree with the
+// Reports page:
+//   - "New leads" = Lead.createdAt in range (same field ReportControllers
+//     filters on).
+//   - "Site visits" = Lead.SiteVisitDate in range (same signal
+//     getSiteVisitAgenda above already uses — Plot.visitDetails is a
+//     different, non-overlapping population and isn't mixed in here).
+//   - "Conversion rate" = PaymentPlan created in range / new leads in range
+//     — the same "bookings/newLeads" definition getMonthlyPerformance uses
+//     in ReportControllers.js (there is no Lead->PaymentPlan link in the
+//     schema, so a true lead->sale rate can't be computed any other way).
+//   - "Active pipeline value" = sum of leadPotentialValue for leads whose
+//     current status isn't Lost/Booked — a live snapshot, not range-scoped
+//     (unlike the old mock, which nonsensically varied this by KPI range).
+// ---------------------------------------------------------------------
+
+const LOST_STATUS_PATTERN = /^lost$/i;
+const BOOKED_STATUS_PATTERN = /^booked$/i;
+
+function initialsFor(name) {
+  if (!name) return "—";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function rangeWindow(range, indiaTz) {
+  const now = dayjs().tz(indiaTz);
+  const end = now.toDate();
+  let start, prevStart, prevEnd;
+
+  if (range === "7d") {
+    start = now.subtract(7, "day").toDate();
+    prevEnd = start;
+    prevStart = now.subtract(14, "day").toDate();
+  } else if (range === "30d") {
+    start = now.subtract(30, "day").toDate();
+    prevEnd = start;
+    prevStart = now.subtract(60, "day").toDate();
+  } else if (range === "mtd") {
+    start = now.startOf("month").toDate();
+    const daysSoFar = now.diff(now.startOf("month"), "day") + 1;
+    prevStart = now.startOf("month").subtract(1, "month").toDate();
+    prevEnd = dayjs(prevStart).add(daysSoFar, "day").toDate();
+  } else {
+    // today
+    start = now.startOf("day").toDate();
+    prevEnd = start;
+    prevStart = now.subtract(1, "day").startOf("day").toDate();
+  }
+
+  return { start, end, prevStart, prevEnd };
+}
+
+function deltaPct(current, previous) {
+  if (!previous) return current > 0 ? 100 : 0;
+  return ((current - previous) / previous) * 100;
+}
+
+exports.getPipelineOverviewStats = async (req, res) => {
+  try {
+    const { range = "today" } = req.body;
+    const indiaTz = "Asia/Kolkata";
+    const { start, end, prevStart, prevEnd } = rangeWindow(range, indiaTz);
+
+    const trendStart = dayjs().tz(indiaTz).subtract(13, "day").startOf("day").toDate();
+    const cardTrendStart = dayjs().tz(indiaTz).subtract(6, "day").startOf("day").toDate();
+
+    const [leads, currentPlans, previousPlans, recentPlans] = await Promise.all([
+      Lead.find()
+        .select("leadPotentialValue leadStatusId leadSourceId leadAssignedId createdAt SiteVisitDate leadHistory")
+        .populate("leadStatusId", "leadStatustName")
+        .populate("leadSourceId", "leadSourceName")
+        .populate("leadAssignedId", "EmployeeName")
+        .lean(),
+      PaymentPlan.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+      PaymentPlan.countDocuments({ createdAt: { $gte: prevStart, $lte: prevEnd } }),
+      PaymentPlan.find({ createdAt: { $gte: cardTrendStart } }).select("createdAt").lean(),
+    ]);
+
+    // Per-KPI-card 7-day sparklines (distinct from the 14-day cumulative
+    // chart below — these show each metric's own daily value).
+    const newLeadsByDay = new Map();
+    const siteVisitsByDay = new Map();
+    const bookingsByDay = new Map();
+    for (let i = 0; i < 7; i += 1) {
+      const key = dayjs(cardTrendStart).add(i, "day").format("YYYY-MM-DD");
+      newLeadsByDay.set(key, 0);
+      siteVisitsByDay.set(key, 0);
+      bookingsByDay.set(key, 0);
+    }
+    for (const plan of recentPlans) {
+      const key = dayjs(plan.createdAt).tz(indiaTz).format("YYYY-MM-DD");
+      if (bookingsByDay.has(key)) bookingsByDay.set(key, bookingsByDay.get(key) + 1);
+    }
+
+    const now = Date.now();
+    let newLeadsCount = 0;
+    let prevNewLeadsCount = 0;
+    let siteVisitsCount = 0;
+    let prevSiteVisitsCount = 0;
+    let activePipelineValue = 0;
+    let pipelineValueAtRangeStart = 0;
+    let lostCount = 0;
+
+    const statusGroups = new Map(); // real status name -> { count, totalValue, daysInStageSum, reps: Map }
+    const sourceGroups = new Map(); // real source name -> count
+    const trendByDay = new Map(); // 'YYYY-MM-DD' -> value
+
+    for (let i = 0; i < 14; i += 1) {
+      trendByDay.set(dayjs(trendStart).add(i, "day").format("YYYY-MM-DD"), 0);
+    }
+
+    for (const lead of leads) {
+      const statusName = lead.leadStatusId?.leadStatustName ?? "Unknown";
+      // Soft-deleted leads (see /Lead/deleteLeads) are excluded from every
+      // Dashboard figure, matching fetchLeads()'s own filter on the Leads page.
+      if (/deleted|archived/i.test(statusName)) continue;
+
+      const createdAt = new Date(lead.createdAt);
+      const sourceName = lead.leadSourceId?.leadSourceName ?? "Unknown";
+      const value = lead.leadPotentialValue ?? 0;
+      const isLost = LOST_STATUS_PATTERN.test(statusName);
+      const isBooked = BOOKED_STATUS_PATTERN.test(statusName);
+
+      if (createdAt >= start && createdAt <= end) newLeadsCount += 1;
+      if (createdAt >= prevStart && createdAt <= prevEnd) prevNewLeadsCount += 1;
+
+      const createdDayKey = dayjs(createdAt).tz(indiaTz).format("YYYY-MM-DD");
+      if (newLeadsByDay.has(createdDayKey)) newLeadsByDay.set(createdDayKey, newLeadsByDay.get(createdDayKey) + 1);
+
+      if (lead.SiteVisitDate) {
+        const visitDate = new Date(lead.SiteVisitDate);
+        if (visitDate >= start && visitDate <= end) siteVisitsCount += 1;
+        if (visitDate >= prevStart && visitDate <= prevEnd) prevSiteVisitsCount += 1;
+
+        const visitDayKey = dayjs(visitDate).tz(indiaTz).format("YYYY-MM-DD");
+        if (siteVisitsByDay.has(visitDayKey)) siteVisitsByDay.set(visitDayKey, siteVisitsByDay.get(visitDayKey) + 1);
+      }
+
+      if (isLost) lostCount += 1;
+      if (!isLost && !isBooked) {
+        activePipelineValue += value;
+        if (createdAt < start) pipelineValueAtRangeStart += value;
+      }
+
+      // 14-day trend: cumulative value of still-active leads, bucketed by
+      // creation date — see file header comment for exactly what this does
+      // and doesn't represent (no historical status snapshots exist).
+      if (!isLost && !isBooked) {
+        const dayKey = dayjs(createdAt).tz(indiaTz).format("YYYY-MM-DD");
+        if (trendByDay.has(dayKey)) {
+          trendByDay.set(dayKey, trendByDay.get(dayKey) + value);
+        } else if (createdAt < trendStart) {
+          // Leads created before the trend window still count toward every
+          // day's cumulative total.
+          trendByDay.set("__before__", (trendByDay.get("__before__") ?? 0) + value);
+        }
+      }
+
+      if (!statusGroups.has(statusName)) {
+        statusGroups.set(statusName, { count: 0, totalValue: 0, daysInStageSum: 0, reps: new Map() });
+      }
+      const group = statusGroups.get(statusName);
+      group.count += 1;
+      group.totalValue += value;
+
+      const statusChangeEntries = (lead.leadHistory ?? []).filter(
+        (h) => h.leadStatusId && String(h.leadStatusId) === String(lead.leadStatusId?._id),
+      );
+      const latestEntry = statusChangeEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+      const enteredAt = latestEntry ? new Date(latestEntry.timestamp) : createdAt;
+      group.daysInStageSum += Math.max(0, (now - enteredAt.getTime()) / 86_400_000);
+
+      if (lead.leadAssignedId) {
+        const repId = String(lead.leadAssignedId._id);
+        const repName = lead.leadAssignedId.EmployeeName ?? "Unassigned";
+        group.reps.set(repId, (group.reps.get(repId) ?? { name: repName, count: 0 }));
+        group.reps.get(repId).count += 1;
+      }
+
+      sourceGroups.set(sourceName, (sourceGroups.get(sourceName) ?? 0) + 1);
+    }
+
+    // Turn the cumulative-by-day map into a running total across the window.
+    let running = trendByDay.get("__before__") ?? 0;
+    const valueTrend = [];
+    for (let i = 0; i < 14; i += 1) {
+      const key = dayjs(trendStart).add(i, "day").format("YYYY-MM-DD");
+      running += trendByDay.get(key) ?? 0;
+      valueTrend.push({ date: dayjs(trendStart).add(i, "day").toISOString(), value: running });
+    }
+
+    const statusGroupsOut = [...statusGroups.entries()].map(([statusName, g]) => ({
+      statusName,
+      count: g.count,
+      totalValue: g.totalValue,
+      avgDaysInStage: g.count ? g.daysInStageSum / g.count : 0,
+      topReps: [...g.reps.entries()]
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 2)
+        .map(([employeeId, r]) => ({ employeeId, name: r.name, initials: initialsFor(r.name), count: r.count })),
+    }));
+
+    const sourceGroupsOut = [...sourceGroups.entries()].map(([sourceName, count]) => ({ sourceName, count }));
+
+    const conversionRate = newLeadsCount ? (currentPlans / newLeadsCount) * 100 : 0;
+    const prevConversionRate = prevNewLeadsCount ? (previousPlans / prevNewLeadsCount) * 100 : 0;
+
+    const cardTrendDays = Array.from({ length: 7 }, (_, i) => dayjs(cardTrendStart).add(i, "day"));
+    const newLeadsTrend = cardTrendDays.map((d) => ({ date: d.toISOString(), value: newLeadsByDay.get(d.format("YYYY-MM-DD")) ?? 0 }));
+    const siteVisitsTrend = cardTrendDays.map((d) => ({ date: d.toISOString(), value: siteVisitsByDay.get(d.format("YYYY-MM-DD")) ?? 0 }));
+    const conversionRateTrend = cardTrendDays.map((d) => {
+      const key = d.format("YYYY-MM-DD");
+      const dayLeads = newLeadsByDay.get(key) ?? 0;
+      const dayBookings = bookingsByDay.get(key) ?? 0;
+      return { date: d.toISOString(), value: dayLeads ? (dayBookings / dayLeads) * 100 : 0 };
+    });
+    const pipelineValueTrend = valueTrend.slice(-7);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        newLeads: { count: newLeadsCount, deltaPct: deltaPct(newLeadsCount, prevNewLeadsCount), trend: newLeadsTrend },
+        siteVisits: { count: siteVisitsCount, deltaPct: deltaPct(siteVisitsCount, prevSiteVisitsCount), trend: siteVisitsTrend },
+        conversionRate: { value: conversionRate, deltaPt: conversionRate - prevConversionRate, trend: conversionRateTrend },
+        activePipelineValue: {
+          value: activePipelineValue,
+          deltaPct: deltaPct(activePipelineValue, pipelineValueAtRangeStart),
+          trend: pipelineValueTrend,
+        },
+        valueTrend,
+        statusGroups: statusGroupsOut,
+        sourceGroups: sourceGroupsOut,
+        lostCount,
+      },
+    });
+  } catch (err) {
+    console.error("Pipeline Overview Stats Error:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };

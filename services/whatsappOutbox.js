@@ -50,6 +50,7 @@ const logOutboundInteraction = async ({
     whatsapp_msg_id: whatsappMsgId,
     waid,
     status: "received",
+    read: true,
     rawPayload,
   });
 };
@@ -69,6 +70,35 @@ exports.sendTextMessage = async ({ waid, text, leadId = null }) => {
     leadId,
     waid,
     messageBody: text,
+    whatsappMsgId: result?.messages?.[0]?.id,
+    rawPayload: result,
+  });
+};
+
+// Interactive reply-button message — up to 3 tappable options. Like
+// sendTextMessage, only works inside the 24h customer-service window. Powers
+// WhatsAppFlow "buttons" nodes (see services/whatsappFlowEngine.js).
+exports.sendInteractiveMessage = async ({ waid, bodyText, buttons, leadId = null }) => {
+  const result = await sendToGraphApi({
+    messaging_product: "whatsapp",
+    to: waid,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: bodyText },
+      action: {
+        buttons: buttons.slice(0, 3).map((button) => ({
+          type: "reply",
+          reply: { id: button.id, title: button.title },
+        })),
+      },
+    },
+  });
+
+  return logOutboundInteraction({
+    leadId,
+    waid,
+    messageBody: bodyText,
     whatsappMsgId: result?.messages?.[0]?.id,
     rawPayload: result,
   });

@@ -15,8 +15,54 @@ const PaymentControllers = require('../controllers/mainControllers/PaymentContro
 const DealControllers = require('../controllers/mainControllers/DealControllers')
 const EmailControllers = require('../controllers/mainControllers/EmailControllers')
 const MeetingControllers = require('../controllers/mainControllers/MeetingControllers')
+const ChannelControllers = require('../controllers/mainControllers/ChannelControllers')
+const TeamControllers = require('../controllers/mainControllers/TeamControllers')
+const AttendanceControllers = require('../controllers/mainControllers/AttendanceControllers')
+const WhatsAppController = require('../controllers/masterControllers/WhatsAppController')
+const LeadDistributionControllers = require('../controllers/mainControllers/LeadDistributionControllers')
+const CallLogControllers = require('../controllers/masterControllers/callLogControllers')
+const WhatsAppFlowControllers = require('../controllers/mainControllers/WhatsAppFlowControllers')
 
 router.post("/Log/getActivityLog", LogControllers.getActivityLog);
+
+router.post("/Channels/getChannelStatus", ChannelControllers.getChannelStatus);
+router.post("/Channels/getIngestionLog", ChannelControllers.getIngestionLog);
+router.post("/Channels/getAutoResponseSettings", ChannelControllers.getAutoResponseSettings);
+router.post("/Channels/updateAutoResponseSetting", ChannelControllers.updateAutoResponseSetting);
+
+router.post("/Channels/getKeywordTriggers", ChannelControllers.getKeywordTriggers);
+router.post("/Channels/createKeywordTrigger", ChannelControllers.createKeywordTrigger);
+router.post("/Channels/updateKeywordTrigger", ChannelControllers.updateKeywordTrigger);
+router.post("/Channels/deleteKeywordTrigger", ChannelControllers.deleteKeywordTrigger);
+
+router.post("/Team/getTeamRoster", TeamControllers.getTeamRoster);
+
+router.post("/Attendance/getTodayForEmployee", AttendanceControllers.getTodayForEmployee);
+router.post("/Attendance/getAllToday", AttendanceControllers.getAllToday);
+router.post("/Attendance/checkIn", AttendanceControllers.checkIn);
+router.post("/Attendance/checkOut", AttendanceControllers.checkOut);
+router.post("/Attendance/startBreak", AttendanceControllers.startBreak);
+router.post("/Attendance/endBreak", AttendanceControllers.endBreak);
+router.post("/Attendance/getHistory", AttendanceControllers.getHistory);
+
+router.post("/WhatsApp/getThreads", WhatsAppController.getThreads);
+router.post("/WhatsApp/getThreadMessages", WhatsAppController.getThreadMessages);
+router.post("/WhatsApp/sendMessage", WhatsAppController.sendMessage);
+
+router.post("/CallLogs/getIvrCallLogs", CallLogControllers.fetchIvrCallLogs);
+
+router.post("/WhatsAppFlow/getFlows", WhatsAppFlowControllers.getFlows);
+router.post("/WhatsAppFlow/getFlow", WhatsAppFlowControllers.getFlow);
+router.post("/WhatsAppFlow/createFlow", WhatsAppFlowControllers.createFlow);
+router.post("/WhatsAppFlow/saveFlow", WhatsAppFlowControllers.saveFlow);
+router.post("/WhatsAppFlow/deleteFlow", WhatsAppFlowControllers.deleteFlow);
+
+router.post("/LeadDistribution/getSettings", LeadDistributionControllers.getSettings);
+router.post("/LeadDistribution/updateEnabled", LeadDistributionControllers.updateEnabled);
+router.post("/LeadDistribution/addToRotation", LeadDistributionControllers.addToRotation);
+router.post("/LeadDistribution/removeFromRotation", LeadDistributionControllers.removeFromRotation);
+router.post("/LeadDistribution/moveInRotation", LeadDistributionControllers.moveInRotation);
+router.post("/LeadDistribution/getEligibleEmployees", LeadDistributionControllers.getEligibleEmployees);
 
 //MenuControllers
 router.post("/Menu/createMenu", MenuControllers.createMenu);
@@ -101,6 +147,7 @@ router.post("/DashBoard/getCallStatusReport",DashboardControllers.getCallStatusR
 router.post("/DashBoard/getLeadFollowup",DashboardControllers.getLeadFollowup);
 router.post("/DashBoard/getVisitorFollowup",DashboardControllers.getVisitorFollowup);
 router.post("/DashBoard/getSiteVisitAgenda",DashboardControllers.getSiteVisitAgenda);
+router.post("/DashBoard/getPipelineOverviewStats",DashboardControllers.getPipelineOverviewStats);
 
 router.post("/Lead/getAllLeads", LeadControllers.getAllLeads);
 router.post("/Lead/bulkImportLeads", LeadControllers.bulkImportLeads);

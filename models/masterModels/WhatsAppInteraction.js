@@ -32,6 +32,13 @@ const WhatsAppInteractionSchema = new mongoose.Schema(
       enum: ["received", "duplicate", "failed"],
       default: "received",
     },
+    // Only meaningful for inbound messages — outbound ones are set read:true
+    // at creation (see whatsappOutbox.js) since we sent them ourselves.
+    // Powers the Inbox tab's unread badge (see WhatsAppController.js).
+    read: {
+      type: Boolean,
+      default: false,
+    },
     rawPayload: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

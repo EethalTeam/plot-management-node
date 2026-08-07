@@ -17,6 +17,7 @@ const { default: mongoose } = require("mongoose");
 const e = require("cors");
 const { recordActivity } = require("../mainControllers/ActivityLogControllers");
 const { getActorId } = require("../../utils/getActor");
+const { autoAssignLead } = require("../../services/leadDistribution");
 
 const DOC_BASE_PATH = path.join(__dirname, "..", "..", "lead_documents");
 
@@ -165,6 +166,10 @@ exports.createLead = async (req, res) => {
       description: `Lead "${savedLeadName}" created`,
     });
 
+    if (!savedLead.leadAssignedId) {
+      await autoAssignLead(savedLead, { sourceLabel: "manual entry", io: req.app.get("socketio") });
+    }
+
     res.status(201).json({
       success: true,
       message: "Lead created successfully with documents",
@@ -230,7 +235,7 @@ exports.bulkImportLeads = async (req, res) => {
           continue;
         }
 
-        await Lead.create({
+        const created = await Lead.create({
           leadFirstName: row.leadFirstName || "",
           leadLastName: row.leadLastName || "",
           leadEmail: row.leadEmail || undefined,
@@ -249,6 +254,8 @@ exports.bulkImportLeads = async (req, res) => {
             },
           ],
         });
+
+        await autoAssignLead(created, { sourceLabel: "bulk import", io: req.app.get("socketio") });
 
         summary.created += 1;
       } catch (rowError) {
@@ -1331,6 +1338,62 @@ exports.addLeadNote = async (req, res) => {
 //   }
 // }
 
+// Finds an existing LeadSource by (case-insensitive) name, or creates one —
+// IndiaMART/Justdial ingestion needs a real leadSourceId to show up in the
+// same source reporting every other channel uses (see ReportControllers.js).
+async function findOrCreateLeadSource(name, code) {
+  let source = await LeadSource.findOne({ leadSourceName: new RegExp(`^${name}$`, "i") });
+  if (!source) {
+    source = await LeadSource.create({ leadSourceCode: code, leadSourceName: name, isActive: true });
+  }
+  return source;
+}
+
+async function findDefaultNewLeadStatus() {
+  return LeadStatus.findOne({ leadStatustName: /^new$/i });
+}
+
+// Auto-creates a real Lead for an inbound channel inquiry that didn't match
+// an existing one by phone — previously these webhooks only logged the
+// inquiry to their own side table (IndiaMartLead/JustdialLead) and left it
+// permanently orphaned (leadId: null) unless a matching Lead already existed.
+async function createLeadFromChannelInquiry({ firstName, lastName, phone, email, notes, address, sourceName, sourceCode, io }) {
+  const source = await findOrCreateLeadSource(sourceName, sourceCode);
+  const status = await findDefaultNewLeadStatus();
+  const lead = await Lead.create({
+    leadFirstName: firstName || sourceName,
+    leadLastName: lastName || "",
+    leadPhone: phone,
+    leadEmail: email || undefined,
+    leadAddress: address || undefined,
+    leadNotes: notes || undefined,
+    leadSourceId: source._id,
+    leadStatusId: status?._id,
+    leadExternalSource: sourceName,
+    leadHistory: [
+      {
+        eventType: "Lead Created",
+        details: `Auto-created from ${sourceName} webhook`,
+        leadStatusId: status?._id,
+      },
+    ],
+  });
+
+  const leadName = `${lead.leadFirstName} ${lead.leadLastName}`.trim();
+  await recordActivity({
+    actorId: null,
+    module: "Lead",
+    action: "created",
+    entityId: lead._id,
+    entityLabel: leadName,
+    description: `Lead "${leadName}" auto-created from ${sourceName}`,
+  });
+
+  await autoAssignLead(lead, { sourceLabel: sourceName, io });
+
+  return lead;
+}
+
 // --- INDIAMART WEBHOOK: store the incoming IndiaMART payload in its own table ---
 exports.indiamartWebhook = async (req, res) => {
   try {
@@ -1369,6 +1432,25 @@ exports.indiamartWebhook = async (req, res) => {
     let linkedLead = null;
     if (normalizedPhone) {
       linkedLead = await Lead.findOne({ leadPhone: normalizedPhone });
+    }
+
+    if (!linkedLead && normalizedPhone) {
+      try {
+        const [firstName, ...rest] = (SENDER_NAME || "IndiaMART").trim().split(/\s+/);
+        linkedLead = await createLeadFromChannelInquiry({
+          firstName,
+          lastName: rest.join(" "),
+          phone: normalizedPhone,
+          email: SENDER_EMAIL,
+          notes: normalizedMessage,
+          address: [SENDER_CITY, SENDER_STATE].filter(Boolean).join(", "),
+          sourceName: "IndiaMART",
+          sourceCode: "LS-INDIAMART",
+          io: req.app.get("socketio"),
+        });
+      } catch (createErr) {
+        console.error("IndiaMART auto-create Lead failed:", createErr);
+      }
     }
 
     const indiaMartLeadRecord = await IndiaMartLead.create({
@@ -1434,6 +1516,25 @@ exports.justdialWebhook = async (req, res) => {
     let linkedLead = null;
     if (leadPhone) {
       linkedLead = await Lead.findOne({ leadPhone });
+    }
+
+    if (!linkedLead && leadPhone) {
+      try {
+        const [firstName, ...rest] = (name || "Justdial").trim().split(/\s+/);
+        linkedLead = await createLeadFromChannelInquiry({
+          firstName,
+          lastName: rest.join(" "),
+          phone: leadPhone,
+          email,
+          notes: generatedMessage,
+          address: jdCity,
+          sourceName: "Justdial",
+          sourceCode: "LS-JUSTDIAL",
+          io: req.app.get("socketio"),
+        });
+      } catch (createErr) {
+        console.error("Justdial auto-create Lead failed:", createErr);
+      }
     }
 
     const justdialLeadRecord = await JustdialLead.create({

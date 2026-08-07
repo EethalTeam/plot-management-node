@@ -1,12 +1,17 @@
 const Lead = require("../models/masterModels/Leads");
 const WhatsAppInteraction = require("../models/masterModels/WhatsAppInteraction");
 const WhatsAppLead = require("../models/masterModels/WhatsAppLead");
+const ChannelSetting = require("../models/masterModels/ChannelSetting");
+const KeywordTrigger = require("../models/masterModels/KeywordTrigger");
+const { autoAssignLead } = require("./leadDistribution");
+const whatsappFlowEngine = require("./whatsappFlowEngine");
 const { getIo } = require("../utils/socketRegistry");
 const { sendTextMessage } = require("./whatsappOutbox");
 const redisClient = require("../utils/redisClient");
 
 const TRAILING_DIGITS = 10;
 const AUTO_ACK_LOCK_TTL_SECONDS = 300;
+const DEFAULT_AUTO_ACK_TEMPLATE = "Hi {{name}}, thanks for reaching out! One of our team members will be with you shortly.";
 
 const extractMessageBody = (message) => {
   switch (message.type) {
@@ -75,6 +80,9 @@ const upsertLeadFromMessage = async ({ waid, profileName, messageBody }) => {
       },
     ],
   });
+
+  await autoAssignLead(lead, { sourceLabel: "WhatsApp", io: getIo() });
+
   return { lead, isNewLead: true };
 };
 
@@ -101,9 +109,16 @@ const emitRealtimeUpdate = ({ lead, interaction, isNewLead }) => {
 // WHATSAPP_AUTO_ACK_ENABLED so deploying this code doesn't silently start
 // auto-replying until it's explicitly turned on for an environment.
 const sendAutoAcknowledgment = async ({ lead, waid }) => {
-  if (process.env.WHATSAPP_AUTO_ACK_ENABLED !== "true") {
+  // The Channels page toggle writes here (see ChannelControllers.js) — the
+  // env var is only the fallback for before that setting has ever been
+  // saved, so flipping the switch in the UI takes effect immediately without
+  // a redeploy.
+  const setting = await ChannelSetting.findOne({ channelId: "whatsapp" });
+  const enabled = setting ? setting.autoResponseEnabled : process.env.WHATSAPP_AUTO_ACK_ENABLED === "true";
+  if (!enabled) {
     return;
   }
+  const template = setting?.autoResponseTemplate || DEFAULT_AUTO_ACK_TEMPLATE;
 
   // Guards against double-sends when Meta bundles multiple messages from the
   // same brand-new contact into one webhook payload (or two workers race).
@@ -128,7 +143,7 @@ const sendAutoAcknowledgment = async ({ lead, waid }) => {
     await sendTextMessage({
       leadId: lead._id,
       waid,
-      text: `Hi ${lead.leadFirstName || "there"}, thanks for reaching out! One of our team members will be with you shortly.`,
+      text: template.replace(/\{\{\s*name\s*\}\}/gi, lead.leadFirstName || "there"),
     });
     console.log(`Auto-acknowledgment sent to new WhatsApp lead: ${waid}`);
   } catch (error) {
@@ -139,6 +154,34 @@ const sendAutoAcknowledgment = async ({ lead, waid }) => {
     );
     // Release the lock on hard failure so a future retry isn't blocked by it.
     await redisClient.del(lockKey).catch(() => {});
+  }
+};
+
+// Runs on EVERY inbound message (new or returning contact), unlike
+// sendAutoAcknowledgment which only ever fires once for a brand-new lead's
+// first message. First enabled rule whose keyword appears anywhere in the
+// message (case-insensitive substring match) wins. Returns whether a reply
+// was sent, so callers can skip the generic new-contact greeting when a
+// keyword already answered it — avoids sending two messages back to back.
+const sendKeywordTriggerReply = async ({ lead, waid, messageBody }) => {
+  const normalizedBody = (messageBody || "").toLowerCase().trim();
+  if (!normalizedBody) return false;
+
+  const triggers = await KeywordTrigger.find({ enabled: true });
+  const match = triggers.find((t) => normalizedBody.includes(t.keyword.toLowerCase()));
+  if (!match) return false;
+
+  try {
+    await sendTextMessage({
+      leadId: lead._id,
+      waid,
+      text: match.template.replace(/\{\{\s*name\s*\}\}/gi, lead.leadFirstName || "there"),
+    });
+    console.log(`Keyword-triggered reply ("${match.keyword}") sent to ${waid}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to send keyword-triggered reply to ${waid}:`, error.message);
+    return false;
   }
 };
 
@@ -174,6 +217,20 @@ const processInboundMessage = async (message, profileName, rawValue) => {
 
   emitRealtimeUpdate({ lead, interaction, isNewLead });
 
+  // A WhatsAppFlow session takes priority over everything below: continuing
+  // a conversation the lead is already mid-way through beats a generic
+  // keyword reply, and a matching new-flow trigger beats the plain
+  // single-message keyword-trigger/auto-ack path.
+  let flowHandled = await whatsappFlowEngine.advanceFlow({ lead, waid, message, messageBody });
+  if (!flowHandled) {
+    flowHandled = await whatsappFlowEngine.tryStartFlow({ lead, waid, messageBody, isNewLead });
+  }
+
+  // Keyword replies take priority over the generic new-contact greeting so a
+  // brand-new lead who opens with "what's the price?" gets the price answer,
+  // not the price answer AND a separate "thanks for reaching out" message.
+  const keywordReplySent = flowHandled || (await sendKeywordTriggerReply({ lead, waid, messageBody }));
+
   if (isNewLead) {
     // Reporting-parity table: one row per acquisition event, same as
     // IndiaMartLead/JustdialLead — not one row per message. Follow-up
@@ -192,7 +249,9 @@ const processInboundMessage = async (message, profileName, rawValue) => {
       rawPayload: rawValue,
     });
 
-    await sendAutoAcknowledgment({ lead, waid });
+    if (!keywordReplySent) {
+      await sendAutoAcknowledgment({ lead, waid });
+    }
   }
 
   return interaction;

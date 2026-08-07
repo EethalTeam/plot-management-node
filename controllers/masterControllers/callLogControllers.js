@@ -164,9 +164,23 @@ exports.fetchIvrCallLogs = async (req, res) => {
       IvrLog.countDocuments({})
     ]);
 
+    // IvrLog only stores the raw phone number, not a name — enrich with the
+    // matching Lead's name (if any) in one batched lookup instead of N+1.
+    const phones = [...new Set(logs.map((log) => log.customer_phone).filter(Boolean))];
+    const matchingLeads = phones.length
+      ? await Lead.find({ leadPhone: { $in: phones } }).select("leadPhone leadFirstName leadLastName").lean()
+      : [];
+    const nameByPhone = new Map(
+      matchingLeads.map((lead) => [lead.leadPhone, `${lead.leadFirstName ?? ""} ${lead.leadLastName ?? ""}`.trim()])
+    );
+    const enrichedLogs = logs.map((log) => ({
+      ...log,
+      customerName: nameByPhone.get(log.customer_phone) || null,
+    }));
+
     res.status(200).json({
       success: true,
-      count: logs.length,
+      count: enrichedLogs.length,
       total,
       pagination: {
         currentPage: Number(page),
@@ -174,7 +188,7 @@ exports.fetchIvrCallLogs = async (req, res) => {
         hasNextPage: skip + logs.length < total,
         hasPrevPage: page > 1
       },
-      data: logs
+      data: enrichedLogs
     });
 
   } catch (error) {
