@@ -4,6 +4,7 @@ const { connection } = require("./scheduledQueue");
 const CronJobControllers = require("../controllers/mainControllers/CronJobControllers");
 const WhatsAppReminderControllers = require("../controllers/mainControllers/WhatsAppReminderControllers");
 const PaymentControllers = require("../controllers/mainControllers/PaymentControllers");
+const sequenceEngine = require("../services/sequenceEngine");
 
 function startScheduledWorker(io) {
   const worker = new Worker(
@@ -33,6 +34,9 @@ function startScheduledWorker(io) {
 
         case "payment-overdue-check":
           return PaymentControllers.markOverdueInstallments();
+
+        case "whatsapp-sequence-steps":
+          return sequenceEngine.processDueSteps();
 
         default:
           throw new Error(`Unknown job: ${job.name}`);

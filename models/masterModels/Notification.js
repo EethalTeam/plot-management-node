@@ -83,8 +83,9 @@ const notificationSchema = new mongoose.Schema(
    enum: [
         "leadStatus-change",
         "lead-assigned",
+        "whatsapp-flow-completed",
         "general",
-       
+
       ],
   default: "general",
 },

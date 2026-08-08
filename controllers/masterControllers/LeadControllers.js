@@ -10,6 +10,7 @@ const Visitor = require("../../models/masterModels/Visitor"); // Adjust path
 const IndiaMartLead = require("../../models/masterModels/IndiaMartLead");
 const JustdialLead = require("../../models/masterModels/JustdialLead");
 const Notification = require("../../models/masterModels/Notification");
+const WhatsAppInteraction = require("../../models/masterModels/WhatsAppInteraction");
 const RoleBased = require("../../models/masterModels/RBAC");
 const path = require("path");
 const fs = require("fs"); // For file system operations (e.g., deleting files)
@@ -18,6 +19,7 @@ const e = require("cors");
 const { recordActivity } = require("../mainControllers/ActivityLogControllers");
 const { getActorId } = require("../../utils/getActor");
 const { autoAssignLead } = require("../../services/leadDistribution");
+const sequenceEngine = require("../../services/sequenceEngine");
 
 const DOC_BASE_PATH = path.join(__dirname, "..", "..", "lead_documents");
 
@@ -169,6 +171,7 @@ exports.createLead = async (req, res) => {
     if (!savedLead.leadAssignedId) {
       await autoAssignLead(savedLead, { sourceLabel: "manual entry", io: req.app.get("socketio") });
     }
+    await sequenceEngine.tryEnrollNewLead(savedLead);
 
     res.status(201).json({
       success: true,
@@ -256,6 +259,7 @@ exports.bulkImportLeads = async (req, res) => {
         });
 
         await autoAssignLead(created, { sourceLabel: "bulk import", io: req.app.get("socketio") });
+        await sequenceEngine.tryEnrollNewLead(created);
 
         summary.created += 1;
       } catch (rowError) {
@@ -310,17 +314,34 @@ exports.getAllLeads = async (req, res) => {
         .populate("leadCountryId", "CountryName")
         .populate("leadAssignedId", "EmployeeName")
         .populate("leadSiteId", "sitename")
-        .populate("leadUnitId", "UnitName"),
+        .populate("leadUnitId", "UnitName")
+        .lean(),
       Lead.countDocuments(query),
     ]);
 
+    // Real engagement signal for the frontend's lead-score formula (see
+    // Ivr-Version/src/features/leads/leadScore.js) — real inbound+outbound
+    // WhatsApp message count per lead, not a placeholder.
+    const leadIds = leads.map((lead) => lead._id);
+    const interactionCounts = leadIds.length
+      ? await WhatsAppInteraction.aggregate([
+          { $match: { leadId: { $in: leadIds } } },
+          { $group: { _id: "$leadId", count: { $sum: 1 } } },
+        ])
+      : [];
+    const countByLeadId = new Map(interactionCounts.map((c) => [String(c._id), c.count]));
+    const enrichedLeads = leads.map((lead) => ({
+      ...lead,
+      whatsappInteractionCount: countByLeadId.get(String(lead._id)) || 0,
+    }));
+
     res.status(200).json({
       success: true,
-      count: leads.length,
+      count: enrichedLeads.length,
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: Number(page),
-      data: leads,
+      data: enrichedLeads,
     });
   } catch (error) {
     console.error("Get All Leads Error:", error);
@@ -1390,6 +1411,7 @@ async function createLeadFromChannelInquiry({ firstName, lastName, phone, email,
   });
 
   await autoAssignLead(lead, { sourceLabel: sourceName, io });
+  await sequenceEngine.tryEnrollNewLead(lead);
 
   return lead;
 }

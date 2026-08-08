@@ -22,6 +22,7 @@ const WhatsAppController = require('../controllers/masterControllers/WhatsAppCon
 const LeadDistributionControllers = require('../controllers/mainControllers/LeadDistributionControllers')
 const CallLogControllers = require('../controllers/masterControllers/callLogControllers')
 const WhatsAppFlowControllers = require('../controllers/mainControllers/WhatsAppFlowControllers')
+const SequenceControllers = require('../controllers/mainControllers/SequenceControllers')
 
 router.post("/Log/getActivityLog", LogControllers.getActivityLog);
 
@@ -56,6 +57,11 @@ router.post("/WhatsAppFlow/getFlow", WhatsAppFlowControllers.getFlow);
 router.post("/WhatsAppFlow/createFlow", WhatsAppFlowControllers.createFlow);
 router.post("/WhatsAppFlow/saveFlow", WhatsAppFlowControllers.saveFlow);
 router.post("/WhatsAppFlow/deleteFlow", WhatsAppFlowControllers.deleteFlow);
+
+router.post("/Sequence/getSequences", SequenceControllers.getSequences);
+router.post("/Sequence/createSequence", SequenceControllers.createSequence);
+router.post("/Sequence/saveSequence", SequenceControllers.saveSequence);
+router.post("/Sequence/deleteSequence", SequenceControllers.deleteSequence);
 
 router.post("/LeadDistribution/getSettings", LeadDistributionControllers.getSettings);
 router.post("/LeadDistribution/updateEnabled", LeadDistributionControllers.updateEnabled);

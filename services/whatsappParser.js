@@ -5,6 +5,8 @@ const ChannelSetting = require("../models/masterModels/ChannelSetting");
 const KeywordTrigger = require("../models/masterModels/KeywordTrigger");
 const { autoAssignLead } = require("./leadDistribution");
 const whatsappFlowEngine = require("./whatsappFlowEngine");
+const sequenceEngine = require("./sequenceEngine");
+const optInHandler = require("./optInHandler");
 const { getIo } = require("../utils/socketRegistry");
 const { sendTextMessage } = require("./whatsappOutbox");
 const redisClient = require("../utils/redisClient");
@@ -82,6 +84,7 @@ const upsertLeadFromMessage = async ({ waid, profileName, messageBody }) => {
   });
 
   await autoAssignLead(lead, { sourceLabel: "WhatsApp", io: getIo() });
+  await sequenceEngine.tryEnrollNewLead(lead);
 
   return { lead, isNewLead: true };
 };
@@ -205,6 +208,15 @@ const processInboundMessage = async (message, profileName, rawValue) => {
     messageBody,
   });
 
+  // Whether this is the lead's first-ever WhatsApp message — not the same as
+  // isNewLead: a lead created via IndiaMART/Justdial/manual entry can still
+  // be messaging on WhatsApp for the first time. This is the real signal
+  // flow triggers use (see whatsappFlowEngine.js's tryStartFlow) to avoid
+  // re-running a first-touch flow on a lead who's already mid-conversation.
+  // Computed before creating this message's own interaction row so the
+  // count doesn't include itself.
+  const isFirstWhatsAppMessage = (await WhatsAppInteraction.countDocuments({ leadId: lead._id })) === 0;
+
   const interaction = await WhatsAppInteraction.create({
     leadId: lead._id,
     direction: "inbound",
@@ -217,13 +229,21 @@ const processInboundMessage = async (message, profileName, rawValue) => {
 
   emitRealtimeUpdate({ lead, interaction, isNewLead });
 
+  // Opt-out/opt-in intent is checked before anything else — a "STOP" must
+  // never also be fed into an active flow/sequence as if it were a normal
+  // reply, and no other automated message should go out once it's handled.
+  const optStatusHandled = await optInHandler.handleOptStatusMessage({ lead, waid, messageBody });
+  if (optStatusHandled) {
+    return interaction;
+  }
+
   // A WhatsAppFlow session takes priority over everything below: continuing
   // a conversation the lead is already mid-way through beats a generic
   // keyword reply, and a matching new-flow trigger beats the plain
   // single-message keyword-trigger/auto-ack path.
   let flowHandled = await whatsappFlowEngine.advanceFlow({ lead, waid, message, messageBody });
   if (!flowHandled) {
-    flowHandled = await whatsappFlowEngine.tryStartFlow({ lead, waid, messageBody, isNewLead });
+    flowHandled = await whatsappFlowEngine.tryStartFlow({ lead, waid, messageBody, isFirstWhatsAppMessage });
   }
 
   // Keyword replies take priority over the generic new-contact greeting so a

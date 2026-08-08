@@ -96,6 +96,18 @@ async function registerScheduledJobs() {
     },
   );
 
+  // Sends any due WhatsApp nurture-sequence step — see
+  // services/sequenceEngine.js's processDueSteps.
+  await scheduledQueue.add(
+    "whatsapp-sequence-steps",
+    {},
+    {
+      ...defaults,
+      jobId: "whatsapp-sequence-steps",
+      repeat: { every: 15 * 60 * 1000 },
+    },
+  );
+
   console.log("[BullMQ] Scheduled jobs registered");
 }
 

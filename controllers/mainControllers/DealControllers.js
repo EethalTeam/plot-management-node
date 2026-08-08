@@ -148,20 +148,29 @@ exports.getQuotation = async (req, res) => {
 exports.saveQuotation = async (req, res) => {
   try {
     const { dealId, lineItems, taxRatePercent, notes } = req.body;
+    const items = lineItems ?? [];
+    const rate = Number(taxRatePercent ?? 18) || 0;
+    // Mirrors the totals math in QuotationModal.jsx exactly, so "Deal Value"
+    // always matches what the quotation actually shows — the two used to be
+    // completely disconnected (value only ever set once, at deal creation).
+    const subtotal = items.reduce((acc, li) => acc + (Number(li.qty) || 0) * (Number(li.unitPrice) || 0), 0);
+    const total = subtotal * (1 + rate / 100);
+
     const deal = await Deal.findByIdAndUpdate(
       dealId,
       {
         quotation: {
-          lineItems: lineItems ?? [],
-          taxRatePercent: taxRatePercent ?? 18,
+          lineItems: items,
+          taxRatePercent: rate,
           notes,
           generatedAt: new Date(),
         },
+        value: total,
       },
       { new: true, runValidators: true },
     );
     if (!deal) return res.status(404).json({ success: false, message: "Deal not found" });
-    res.status(200).json({ success: true, message: "Quotation saved", data: deal.quotation });
+    res.status(200).json({ success: true, message: "Quotation saved", data: deal.quotation, dealValue: deal.value });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
