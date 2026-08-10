@@ -44,13 +44,31 @@ const IvrLogSchema = new mongoose.Schema({
         required: true,
         set: v => (v === "" || v === null) ? 0 : parseInt(v, 10)
     },
-    Direction: { 
-        type: String, 
-        enum: ['inbound', 'outbound'], 
+    Direction: {
+        type: String,
+        enum: ['inbound', 'outbound'],
         default: 'inbound',
-        trim: true 
+        trim: true
     },
-    did: { type: String, required: true, trim: true }
+    did: { type: String, required: true, trim: true },
+
+    // Populated by the free local faster-whisper script
+    // (plot-management-node/scripts/transcribe_calls.py) — no external API,
+    // no per-minute cost. Left unset until that script runs; the existing
+    // /CallLogs/getIvrCallLogs endpoint already returns the whole document,
+    // so nothing else needs to change for these to appear over the API.
+    transcript: { type: String, trim: true, default: null },
+    transcriptLanguage: { type: String, trim: true, default: null },
+    transcribedAt: { type: Date, default: null },
+
+    // Populated by scripts/analyze_sentiment.py — a cheap hosted LLM call
+    // (Groq), not a free local classifier. Three free local multilingual
+    // sentiment models were tested against real transcripts first and none
+    // gave reliable signal on this noisy, code-switched Tamil/Hindi/English
+    // content, so this uses real language understanding instead.
+    sentiment: { type: String, enum: ['positive', 'neutral', 'negative'], default: null },
+    sentimentReason: { type: String, trim: true, default: null },
+    summary: { type: String, trim: true, default: null },
 }, {
     timestamps: true
 });

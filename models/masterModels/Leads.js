@@ -169,6 +169,13 @@ const LeadSchema = new mongoose.Schema(
       dayBeforeSentAt: { type: Date },
       hoursBeforeSentAt: { type: Date },
     },
+
+    // Populated by scripts/generate_lead_briefings.py — a real Gemini call
+    // (free tier) that reads the lead's actual history/WhatsApp activity and
+    // writes one short, actionable note for the rep. Regenerated whenever
+    // real activity happens after the last briefing (see the script).
+    priorityBriefing: { type: String, trim: true, default: null },
+    priorityBriefingGeneratedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
