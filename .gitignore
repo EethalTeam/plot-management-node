@@ -27,3 +27,7 @@ coverage/
 # Backup feature
 /backups/
 google-service-account.json
+
+# Python (scripts/)
+__pycache__/
+*.pyc

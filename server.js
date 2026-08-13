@@ -20,6 +20,7 @@ const LeadController = require("./controllers/masterControllers/LeadControllers"
 const IvrController = require("./controllers/masterControllers/ivrController");
 const WhatsAppController = require("./controllers/masterControllers/WhatsAppController");
 const verifyWhatsAppSignature = require("./middlewares/whatsappSignature");
+const authMiddleware = require("./middlewares/authMiddleware");
 const startWhatsAppWorker = require("./queues/whatsappWorker");
 const socketRegistry = require("./utils/socketRegistry");
 const { ensureIvrLogsTable } = require("./utils/supabaseClient");
@@ -53,6 +54,12 @@ app.use(
     credentials: true,
   }),
 );
+
+// Runs first, ahead of every /api route below regardless of where each one
+// is registered (direct app.post/get, static, or via the routers) — see
+// middlewares/authMiddleware.js for the public-path allowlist (login, the
+// two external webhooks, and lead_documents static downloads).
+app.use("/api", authMiddleware);
 
 app.post(
   "/api/importLeadsExcel",

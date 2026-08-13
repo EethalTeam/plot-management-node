@@ -37,7 +37,7 @@ exports.verifyLogin = async (req, res) => {
         EmployeeCode: user.EmployeeCode,
         role: roleName
       },
-      process.env.JWT_SECRET || "9@B!7eD#v^3Qp2LmZ$Wk1X%tRg6N*oYu8hGlDd4Ci",
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 

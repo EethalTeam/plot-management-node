@@ -57,9 +57,24 @@ const IvrLogSchema = new mongoose.Schema({
     // no per-minute cost. Left unset until that script runs; the existing
     // /CallLogs/getIvrCallLogs endpoint already returns the whole document,
     // so nothing else needs to change for these to appear over the API.
+    // transcript is the flattened "Speaker: text" version (also what
+    // analyze_sentiment.py reads); transcriptTurns is the same content
+    // structured per utterance for the UI to render as a real conversation.
+    // Recordings from this PBX are real stereo with each call leg on its
+    // own channel, so turns come from transcribing each channel separately
+    // and merging by timestamp — not speaker-diarization guesswork.
     transcript: { type: String, trim: true, default: null },
     transcriptLanguage: { type: String, trim: true, default: null },
     transcribedAt: { type: Date, default: null },
+    transcriptTurns: {
+        type: [{
+            speaker: { type: String, enum: ['agent', 'customer'] },
+            start: Number,
+            end: Number,
+            text: String,
+        }],
+        default: undefined,
+    },
 
     // Populated by scripts/analyze_sentiment.py — a cheap hosted LLM call
     // (Groq), not a free local classifier. Three free local multilingual
