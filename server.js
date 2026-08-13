@@ -27,7 +27,7 @@ const { ensureIvrLogsTable } = require("./utils/supabaseClient");
 const upload = multer({ dest: "uploads/" });
 const googleapis = require("googleapis");
 const app = express();
-const PORT = 8001;
+const PORT = 8012;
 
 app.use(
   express.json({
