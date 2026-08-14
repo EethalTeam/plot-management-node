@@ -52,24 +52,31 @@ function parseFollowUpDate(text) {
   return parsed || null;
 }
 
-// Turns a captured "visit_date"-style flow answer into the same real
-// FollowDate + "Follow Up" status a rep would set by hand — otherwise the
-// answer only ever lives in leadHistory, invisible to
-// DashBoardControllers.js's getLeadFollowup ("Follow-ups Due Today"), which
-// requires both fields set. Mutates `lead` in place; caller saves it.
+// Turns a captured "visit_date"-style flow answer into the same real fields
+// a rep would set by hand — otherwise the answer only ever lives in
+// leadHistory, invisible to both real dashboard widgets that read it:
+// - SiteVisitDate: what the question actually asked ("what date works for
+//   a site visit?") — read by getSiteVisitAgenda ("Site Visits This Week",
+//   a 7-day window with Today/Tomorrow labels, no same-day-only filter).
+// - FollowDate + "Follow Up" status: a nudge for the rep to prepare/confirm
+//   ahead of that visit — read by getLeadFollowup ("Follow-ups Due Today",
+//   which the frontend deliberately narrows to today-or-overdue only, so a
+//   visit scheduled for tomorrow correctly won't appear there until then).
+// Mutates `lead` in place; caller saves it.
 async function applyFollowUpDateIfCaptured(lead, variables) {
   const dateKey = FOLLOW_UP_DATE_VARIABLES.find((key) => variables?.[key]);
   if (!dateKey) return null;
 
-  const followDate = parseFollowUpDate(variables[dateKey]);
-  if (!followDate) return null;
+  const parsedDate = parseFollowUpDate(variables[dateKey]);
+  if (!parsedDate) return null;
 
   const followUpStatus = await LeadStatus.findOne({ leadStatustName: /^follow up$/i });
   if (!followUpStatus) return null;
 
-  lead.FollowDate = followDate;
+  lead.SiteVisitDate = parsedDate;
+  lead.FollowDate = parsedDate;
   lead.leadStatusId = followUpStatus._id;
-  return followDate;
+  return parsedDate;
 }
 
 // Runs once, when a flow reaches its "end" node — the whole point of
@@ -88,11 +95,11 @@ async function notifyFlowCompletion(flow, state, lead) {
   lead.leadHistory.push({ eventType: "WhatsApp Flow Completed", details: historyDetails });
 
   try {
-    const followDate = await applyFollowUpDateIfCaptured(lead, state.variables);
-    if (followDate) {
+    const visitDate = await applyFollowUpDateIfCaptured(lead, state.variables);
+    if (visitDate) {
       lead.leadHistory.push({
-        eventType: "Follow-up Scheduled",
-        details: `Auto-scheduled from the WhatsApp flow's captured visit date (${followDate.toDateString()}).`,
+        eventType: "Site Visit Scheduled",
+        details: `Auto-scheduled from the WhatsApp flow's captured visit date (${visitDate.toDateString()}) — also flagged for follow-up.`,
       });
     }
   } catch (error) {
