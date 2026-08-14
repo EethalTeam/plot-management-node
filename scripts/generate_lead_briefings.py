@@ -1,13 +1,17 @@
 """
-Real per-lead priority briefing via Gemini (free tier) — reads a lead's
+Real per-lead priority briefing via Groq (cheap hosted LLM) — reads a lead's
 actual activity (leadHistory + recent real WhatsApp messages) and writes one
 short, actionable note for the assigned rep: why this lead matters right
-now, and what to do next. Same "free hosted LLM, local script, writes
-straight into MongoDB" pattern as scripts/analyze_sentiment.py.
+now, and what to do next. Same provider and "free/cheap hosted LLM, local
+script, writes straight into MongoDB" pattern as scripts/analyze_sentiment.py
+— originally built on Gemini's free tier, migrated here to consolidate on
+one LLM provider (Gemini needed a non-obvious thinkingConfig fix to stop
+silently truncating output, plus manual rate-limit throttling; Groq has
+needed neither for the same shape of task on this same data).
 
 Usage:
     pip install requests python-dotenv
-    # GEMINI_API_KEY must be set in plot-management-node/.env
+    # GROQ_API_KEY must be set in plot-management-node/.env
     python scripts/generate_lead_briefings.py --limit 20
 
 Re-running is safe — only regenerates a briefing when the lead has had real
@@ -18,7 +22,6 @@ briefing was generated. See fetch_pending_leads.
 import argparse
 import os
 import sys
-import time
 from pathlib import Path
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -41,15 +44,11 @@ MONGO_URI = (
 # the document).
 DELETED_STATUS_ID = ObjectId("6a6c9d8a830ad4b804ccf7d0")
 
-# Free-tier Gemini has real per-minute rate limits — a tight batch loop hit
-# a 429 after ~9 calls in testing. A small pause between calls keeps a
-# normal-sized batch under that limit instead of failing partway through.
-SECONDS_BETWEEN_CALLS = 4
-
-# gemini-2.0-flash was shut down June 2026 — 2.5-flash is the current stable
-# free-tier model as of this writing. Bump this one constant if it changes.
-GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+# Same model already used for real call sentiment/summary (see
+# scripts/analyze_sentiment.py) — keeping one provider/model for both
+# "read messy real text, produce short structured output" tasks.
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = (
     "You are a sales assistant for a real estate CRM. Given a lead's real activity history below, "
@@ -119,39 +118,35 @@ def lookup_name(db, collection, doc_id, field):
 
 def generate_briefing(api_key, context):
     response = requests.post(
-        GEMINI_URL,
-        params={"key": api_key},
+        GROQ_URL,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
-            "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n---\n\n{context}"}]}],
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 300,
-                # 2.5-flash spends part of its output budget on internal
-                # "thinking" tokens by default — on this prompt that consumed
-                # the whole budget before any real answer, silently
-                # truncating the note mid-sentence with no error raised.
-                # This task doesn't need deep reasoning, so disable it.
-                "thinkingConfig": {"thinkingBudget": 0},
-            },
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": context},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 300,
         },
         timeout=30,
     )
     response.raise_for_status()
     data = response.json()
-    candidate = data["candidates"][0]
-    if candidate.get("finishReason") not in ("STOP", None):
-        raise RuntimeError(f"Gemini response cut short (finishReason={candidate.get('finishReason')})")
-    return candidate["content"]["parts"][0]["text"].strip()
+    choice = data["choices"][0]
+    if choice.get("finish_reason") not in ("stop", None):
+        raise RuntimeError(f"Groq response cut short (finish_reason={choice.get('finish_reason')})")
+    return choice["message"]["content"].strip()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate real per-lead priority briefings via Gemini (free tier).")
+    parser = argparse.ArgumentParser(description="Generate real per-lead priority briefings via Groq (cheap hosted LLM).")
     parser.add_argument("--limit", type=int, default=20, help="Max number of leads to brief this run (default: 20)")
     args = parser.parse_args()
 
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        print("GEMINI_API_KEY not set — add it to plot-management-node/.env")
+        print("GROQ_API_KEY not set — add it to plot-management-node/.env")
         sys.exit(1)
 
     print("Connecting to MongoDB...")
@@ -163,13 +158,10 @@ def main():
         print("No leads need a fresh briefing — nothing to do.")
         return
 
-    print(f"Found {len(leads)} lead(s) to brief via Gemini ({GEMINI_MODEL}).")
+    print(f"Found {len(leads)} lead(s) to brief via Groq ({GROQ_MODEL}).")
 
     processed, failed = 0, 0
-    for i, lead in enumerate(leads):
-        if i > 0:
-            time.sleep(SECONDS_BETWEEN_CALLS)
-
+    for lead in leads:
         name = f"{lead.get('leadFirstName', '')} {lead.get('leadLastName', '')}".strip() or str(lead["_id"])
         print(f"\n[{name}] generating briefing...")
         try:
