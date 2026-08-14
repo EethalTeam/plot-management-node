@@ -1,4 +1,6 @@
 const Lead = require("../models/masterModels/Leads");
+const LeadSource = require("../models/masterModels/LeadSource");
+const LeadStatus = require("../models/masterModels/LeadStatus");
 const WhatsAppInteraction = require("../models/masterModels/WhatsAppInteraction");
 const WhatsAppLead = require("../models/masterModels/WhatsAppLead");
 const ChannelSetting = require("../models/masterModels/ChannelSetting");
@@ -47,6 +49,21 @@ const findLeadByWaid = async (waid) => {
   });
 };
 
+// Mirrors LeadControllers.js's findOrCreateLeadSource/findDefaultNewLeadStatus
+// — a WhatsApp-created lead needs a real leadSourceId (not just the plain
+// leadExternalSource string below) to show up correctly in the Leads table's
+// source pill and in any report/dashboard that counts leads by leadSourceId,
+// same as the IndiaMART/Justdial webhook path already does.
+const findOrCreateWhatsAppSource = async () => {
+  let source = await LeadSource.findOne({ leadSourceName: /^whatsapp$/i });
+  if (!source) {
+    source = await LeadSource.create({ leadSourceCode: "WHATSAPP", leadSourceName: "WhatsApp", isActive: true });
+  }
+  return source;
+};
+
+const findDefaultNewLeadStatus = () => LeadStatus.findOne({ leadStatustName: /^new$/i });
+
 const upsertLeadFromMessage = async ({ waid, profileName, messageBody }) => {
   const existingLead = await findLeadByWaid(waid);
 
@@ -67,18 +84,22 @@ const upsertLeadFromMessage = async ({ waid, profileName, messageBody }) => {
   }
 
   const [leadFirstName, ...rest] = (profileName || "WhatsApp Lead").split(" ");
+  const [source, status] = await Promise.all([findOrCreateWhatsAppSource(), findDefaultNewLeadStatus()]);
 
   const lead = await Lead.create({
     leadFirstName: leadFirstName || "WhatsApp Lead",
     leadLastName: rest.join(" "),
     leadPhone: waid,
     whatsapp_waid: waid,
+    leadSourceId: source._id,
+    leadStatusId: status?._id,
     leadExternalSource: "WhatsApp",
     leadMessages: [{ text: messageBody, source: "WhatsApp" }],
     leadHistory: [
       {
         eventType: "Lead Created",
         details: "Created automatically from an inbound WhatsApp message.",
+        leadStatusId: status?._id,
       },
     ],
   });
