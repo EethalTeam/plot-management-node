@@ -29,6 +29,19 @@ const googleapis = require("googleapis");
 const app = express();
 const PORT = 8012;
 
+// Required for req.ip / X-Forwarded-For to reflect the real client address
+// rather than the reverse proxy (Vercel) in front of this server — without
+// this, middlewares/authMiddleware.js's IP restriction would see every
+// request as coming from the same proxy IP.
+// Deliberately "1" (trust exactly one hop), not "true" (trust every hop
+// unconditionally) — "true" would let a client bypass IP restriction
+// entirely by sending its own forged X-Forwarded-For header, since Express
+// would trust whatever IP the client claims instead of what Vercel's edge
+// actually observed. "1" makes Express use the address the single trusted
+// proxy (Vercel) reported seeing, ignoring anything earlier in the chain
+// that the untrusted client could have injected.
+app.set("trust proxy", 1);
+
 app.use(
   express.json({
     limit: "50mb",

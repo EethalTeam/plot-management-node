@@ -18,6 +18,7 @@ const MeetingControllers = require('../controllers/mainControllers/MeetingContro
 const ChannelControllers = require('../controllers/mainControllers/ChannelControllers')
 const TeamControllers = require('../controllers/mainControllers/TeamControllers')
 const AttendanceControllers = require('../controllers/mainControllers/AttendanceControllers')
+const SecuritySettingControllers = require('../controllers/mainControllers/SecuritySettingControllers')
 const WhatsAppController = require('../controllers/masterControllers/WhatsAppController')
 const LeadDistributionControllers = require('../controllers/mainControllers/LeadDistributionControllers')
 const CallLogControllers = require('../controllers/masterControllers/callLogControllers')
@@ -30,6 +31,10 @@ router.post("/Channels/getChannelStatus", ChannelControllers.getChannelStatus);
 router.post("/Channels/getIngestionLog", ChannelControllers.getIngestionLog);
 router.post("/Channels/getAutoResponseSettings", ChannelControllers.getAutoResponseSettings);
 router.post("/Channels/updateAutoResponseSetting", ChannelControllers.updateAutoResponseSetting);
+
+router.post("/Security/getSettings", SecuritySettingControllers.getSecuritySettings);
+router.post("/Security/updateSettings", SecuritySettingControllers.updateSecuritySettings);
+router.post("/Security/getMyIp", SecuritySettingControllers.getMyIp);
 
 router.post("/Channels/getKeywordTriggers", ChannelControllers.getKeywordTriggers);
 router.post("/Channels/createKeywordTrigger", ChannelControllers.createKeywordTrigger);
