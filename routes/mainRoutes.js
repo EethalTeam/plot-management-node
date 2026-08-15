@@ -51,6 +51,8 @@ router.post("/WhatsApp/getThreadMessages", WhatsAppController.getThreadMessages)
 router.post("/WhatsApp/sendMessage", WhatsAppController.sendMessage);
 
 router.post("/CallLogs/getIvrCallLogs", CallLogControllers.fetchIvrCallLogs);
+router.post("/CallLogs/getCallOutcome", CallLogControllers.getCallOutcome);
+router.post("/CallLogs/saveCallOutcome", CallLogControllers.saveCallOutcome);
 
 router.post("/WhatsAppFlow/getFlows", WhatsAppFlowControllers.getFlows);
 router.post("/WhatsAppFlow/getFlow", WhatsAppFlowControllers.getFlow);

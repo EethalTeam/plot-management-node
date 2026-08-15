@@ -84,6 +84,23 @@ const IvrLogSchema = new mongoose.Schema({
     sentiment: { type: String, enum: ['positive', 'neutral', 'negative'], default: null },
     sentimentReason: { type: String, trim: true, default: null },
     summary: { type: String, trim: true, default: null },
+
+    // Manual post-call outcome logging (PostCallActionModal.jsx) — a rep's
+    // own qualification/follow-up-date/note about how the call went, not
+    // AI-derived. Same fixed 6-stage slug set as Lead.leadStatusId's
+    // frontend representation (components/ui/leadMeta.js's STATUS_META),
+    // kept as a plain string here rather than a LeadStatus ref since this is
+    // an annotation on the call, not a write to the lead's own pipeline
+    // status.
+    outcomeQualificationStatus: {
+        type: String,
+        enum: ['new', 'contacted', 'site-visit-scheduled', 'negotiation', 'booked', 'lost'],
+        default: null,
+    },
+    outcomeFollowUpDate: { type: Date, default: null },
+    outcomeNote: { type: String, trim: true, default: null },
+    outcomeLoggedAt: { type: Date, default: null },
+    outcomeLoggedById: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
 }, {
     timestamps: true
 });
