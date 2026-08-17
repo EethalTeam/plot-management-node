@@ -88,6 +88,32 @@ DEFAULT_MODEL = "medium"
 # looks backwards, flip these two.
 CHANNEL_SPEAKERS = {"left": "customer", "right": "agent"}
 
+# Whisper's real mechanism for "always output English" is the task
+# parameter, not a free-text instruction — task="translate" tells the model
+# itself to translate whatever it hears directly into English, rather than
+# transcribing verbatim in the spoken language. Tested against a real Tamil
+# call in this database: task="transcribe" (the old default) produced
+# garbled, barely-readable mixed Tamil/English text; task="translate"
+# produced a clean, coherent English transcript of the same audio. This only
+# translates INTO English (not between two non-English languages), which
+# matches every real call seen here so far.
+#
+# info.language (saved as transcriptLanguage) still reports the language
+# Whisper detected in the audio (e.g. "ta") — that doesn't change just
+# because the output text is now English; it's what the frontend's language
+# badge uses to show "this customer spoke Tamil" alongside the English text.
+TASK = "translate"
+
+# Tried an initial_prompt here too (real-estate vocabulary, to help with
+# proper nouns) and reverted it after finding real damage: on a call with
+# quiet/difficult audio, Whisper didn't transcribe anything — it just
+# echoed the prompt text back verbatim, repeatedly, as if it were the
+# customer and agent both saying it. That's worse than the old garbled
+# output, because a hallucinated transcript reads as plausible English
+# instead of being obviously wrong. task="translate" alone already fixed
+# the actual problem (verified against a real Tamil call — see git history
+# for the before/after), so it wasn't worth the risk.
+
 
 def fetch_pending_calls(db, limit):
     # Newest first — recent calls are both the ones you actually care about
@@ -142,7 +168,7 @@ def split_stereo_channels(audio_path, left_path, right_path):
 
 
 def transcribe_channel(model, audio_path, speaker):
-    segments, info = model.transcribe(str(audio_path), beam_size=5)
+    segments, info = model.transcribe(str(audio_path), beam_size=5, task=TASK)
     turns = []
     for segment in segments:
         text = segment.text.strip()
@@ -161,7 +187,7 @@ def transcribe_call_as_conversation(model, audio_path, tmp_dir, call_id):
     if channels < 2:
         # Mono recording — no per-leg separation available, fall back to a
         # single flat transcript exactly like before.
-        segments, info = model.transcribe(str(audio_path), beam_size=5)
+        segments, info = model.transcribe(str(audio_path), beam_size=5, task=TASK)
         text = " ".join(segment.text.strip() for segment in segments).strip()
         return text, None, info.language if text else None
 

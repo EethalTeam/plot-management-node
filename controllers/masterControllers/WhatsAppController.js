@@ -123,18 +123,55 @@ exports.sendMessage = async (req, res) => {
     const { leadId, text } = req.body;
     if (!leadId || !text) return res.status(400).json({ success: false, message: "leadId and text are required" });
 
-    const lead = await Lead.findById(leadId).select("whatsapp_waid leadPhone");
-    if (!lead) return res.status(404).json({ success: false, message: "Lead not found" });
+    console.log(`[WhatsApp] Sending message from inbox for lead: ${leadId}`);
+
+    const lead = await Lead.findById(leadId).select("whatsapp_waid leadPhone leadFirstName leadLastName");
+    if (!lead) {
+      console.error(`[WhatsApp] Lead not found: ${leadId}`);
+      return res.status(404).json({ success: false, message: "Lead not found" });
+    }
 
     const waid = lead.whatsapp_waid || lead.leadPhone;
-    if (!waid) return res.status(400).json({ success: false, message: "This lead has no WhatsApp number on file." });
+    if (!waid) {
+      console.error(`[WhatsApp] No WhatsApp ID found for lead ${leadId}. whatsapp_waid: ${lead.whatsapp_waid}, leadPhone: ${lead.leadPhone}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: "This lead has no WhatsApp number on file. Please add a phone number to the lead's profile." 
+      });
+    }
 
-    const interaction = await sendTextMessage({ waid, text, leadId: lead._id });
-    res.status(200).json({
-      success: true,
-      data: { id: interaction._id, from: "rep", text: interaction.message_body, timestamp: interaction.createdAt },
-    });
+    console.log(`[WhatsApp] Using WAID: ${waid} for lead ${lead.leadFirstName} ${lead.leadLastName}`);
+
+    try {
+      const interaction = await sendTextMessage({ waid, text, leadId: lead._id });
+      console.log(`[WhatsApp] Message sent successfully. Message ID: ${interaction._id}`);
+      
+      res.status(200).json({
+        success: true,
+        data: { id: interaction._id, from: "rep", text: interaction.message_body, timestamp: interaction.createdAt },
+      });
+    } catch (sendError) {
+      console.error(`[WhatsApp] Error sending message via Meta API:`, sendError.message);
+      
+      // Check for common error codes
+      if (sendError.code === 131000) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Cannot send this message — outside the 24-hour messaging window. Use a template message instead." 
+        });
+      }
+      
+      if (sendError.code === 131047) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "This phone number is not registered with WhatsApp. Check the number format (must be E.164: e.g., 919876543210)." 
+        });
+      }
+
+      throw sendError;
+    }
   } catch (error) {
+    console.error(`[WhatsApp] sendMessage error:`, error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

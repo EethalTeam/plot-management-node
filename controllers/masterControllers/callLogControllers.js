@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const TelecmiLog = require('../../models/masterModels/TeleCMICallLog');
 const IvrLog = require('../../models/masterModels/IvrLog');
 const Lead = require('../../models/masterModels/Leads'); // Adjust path
+const { getActorId } = require('../../utils/getActor');
 
 
 const TELECMI_USER_ID = "5002_33336639";
@@ -194,6 +195,63 @@ exports.fetchIvrCallLogs = async (req, res) => {
   } catch (error) {
     console.error('Error fetching IVR call logs:', error.message);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
+
+function mapOutcome(callId, log) {
+  if (!log?.outcomeLoggedAt) return null;
+  return {
+    callId,
+    qualificationStatus: log.outcomeQualificationStatus ?? null,
+    followUpDate: log.outcomeFollowUpDate ? log.outcomeFollowUpDate.toISOString().slice(0, 10) : null,
+    note: log.outcomeNote ?? '',
+    loggedAt: log.outcomeLoggedAt,
+  };
+}
+
+// Real, persistent post-call outcome logging (PostCallActionModal.jsx) —
+// previously an in-memory Map on the frontend that silently lost every
+// logged outcome on a server/page restart, with no indication in the UI
+// that it wasn't actually saved.
+exports.getCallOutcome = async (req, res) => {
+  try {
+    const { callId } = req.body;
+    if (!callId) return res.status(400).json({ success: false, message: 'callId is required' });
+
+    const log = await IvrLog.findById(callId).select(
+      'outcomeQualificationStatus outcomeFollowUpDate outcomeNote outcomeLoggedAt',
+    );
+    if (!log) return res.status(404).json({ success: false, message: 'Call not found' });
+
+    res.status(200).json({ success: true, data: mapOutcome(callId, log) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.saveCallOutcome = async (req, res) => {
+  try {
+    const { callId, qualificationStatus, followUpDate, note } = req.body;
+    if (!callId) return res.status(400).json({ success: false, message: 'callId is required' });
+
+    const log = await IvrLog.findByIdAndUpdate(
+      callId,
+      {
+        $set: {
+          outcomeQualificationStatus: qualificationStatus || null,
+          outcomeFollowUpDate: followUpDate ? new Date(followUpDate) : null,
+          outcomeNote: note || '',
+          outcomeLoggedAt: new Date(),
+          outcomeLoggedById: getActorId(req),
+        },
+      },
+      { new: true },
+    );
+    if (!log) return res.status(404).json({ success: false, message: 'Call not found' });
+
+    res.status(200).json({ success: true, message: 'Outcome logged', data: mapOutcome(callId, log) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

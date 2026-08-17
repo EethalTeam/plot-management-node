@@ -1,9 +1,24 @@
+const chrono = require("chrono-node");
 const WhatsAppFlow = require("../models/masterModels/WhatsAppFlow");
 const WhatsAppFlowState = require("../models/masterModels/WhatsAppFlowState");
+const LeadStatus = require("../models/masterModels/LeadStatus");
 const Notification = require("../models/masterModels/Notification");
 const { sendTextMessage, sendInteractiveMessage } = require("./whatsappOutbox");
 const { interpolate } = require("./messageInterpolation");
 const { getIo } = require("../utils/socketRegistry");
+
+// All real business hours/dates in this project are IST (see
+// DashBoardControllers.js's dayjs().tz("Asia/Kolkata") usage) — parsing
+// "tomorrow"/"next monday" against the server's own timezone (UTC on
+// Vercel) could resolve to the wrong calendar day near midnight IST.
+const BUSINESS_TIMEZONE = "Asia/Kolkata";
+
+// Free-text flow answers only turn into a real, dashboard-visible follow-up
+// when the node that asked for them used this exact captureVariable name —
+// a deliberate, narrow convention (matching the one real flow that collects
+// a visit date today) rather than guessing intent from every captured
+// variable. Extend this list if more flows adopt the same convention.
+const FOLLOW_UP_DATE_VARIABLES = ["visit_date"];
 
 // Only "buttons" and "question" nodes pause the flow waiting for a reply;
 // "message" nodes send-and-continue. Guards against a badly authored flow
@@ -28,6 +43,42 @@ function summarizeVariables(variables) {
   return entries.map(([key, value]) => `${key}: ${value}`).join(", ");
 }
 
+// Best-effort — free text like "not sure yet" or "20th" (no month) has no
+// resolvable date, and that's a legitimate outcome, not an error: the rep
+// still sees the raw answer in leadHistory either way, this just decides
+// whether it also becomes an actionable, dashboard-visible FollowDate.
+function parseFollowUpDate(text) {
+  const parsed = chrono.parseDate(text, new Date(), { timezone: BUSINESS_TIMEZONE });
+  return parsed || null;
+}
+
+// Turns a captured "visit_date"-style flow answer into the same real fields
+// a rep would set by hand — otherwise the answer only ever lives in
+// leadHistory, invisible to both real dashboard widgets that read it:
+// - SiteVisitDate: what the question actually asked ("what date works for
+//   a site visit?") — read by getSiteVisitAgenda ("Site Visits This Week",
+//   a 7-day window with Today/Tomorrow labels, no same-day-only filter).
+// - FollowDate + "Follow Up" status: a nudge for the rep to prepare/confirm
+//   ahead of that visit — read by getLeadFollowup ("Follow-ups Due Today",
+//   which the frontend deliberately narrows to today-or-overdue only, so a
+//   visit scheduled for tomorrow correctly won't appear there until then).
+// Mutates `lead` in place; caller saves it.
+async function applyFollowUpDateIfCaptured(lead, variables) {
+  const dateKey = FOLLOW_UP_DATE_VARIABLES.find((key) => variables?.[key]);
+  if (!dateKey) return null;
+
+  const parsedDate = parseFollowUpDate(variables[dateKey]);
+  if (!parsedDate) return null;
+
+  const followUpStatus = await LeadStatus.findOne({ leadStatustName: /^follow up$/i });
+  if (!followUpStatus) return null;
+
+  lead.SiteVisitDate = parsedDate;
+  lead.FollowDate = parsedDate;
+  lead.leadStatusId = followUpStatus._id;
+  return parsedDate;
+}
+
 // Runs once, when a flow reaches its "end" node — the whole point of
 // capturing answers via "question" nodes is wasted if nobody in the CRM
 // ever sees them. Writes a real, visible leadHistory entry (same audit
@@ -42,6 +93,21 @@ async function notifyFlowCompletion(flow, state, lead) {
 
   lead.leadHistory = lead.leadHistory || [];
   lead.leadHistory.push({ eventType: "WhatsApp Flow Completed", details: historyDetails });
+
+  try {
+    const visitDate = await applyFollowUpDateIfCaptured(lead, state.variables);
+    if (visitDate) {
+      lead.leadHistory.push({
+        eventType: "Site Visit Scheduled",
+        details: `Auto-scheduled from the WhatsApp flow's captured visit date (${visitDate.toDateString()}) — also flagged for follow-up.`,
+      });
+    }
+  } catch (error) {
+    // A failed auto-schedule shouldn't lose the flow-completion history
+    // entry itself — the raw answer is still visible either way.
+    console.error("Auto-scheduling follow-up date failed:", error.message);
+  }
+
   await lead.save();
 
   if (!lead.leadAssignedId) return;
