@@ -50,6 +50,8 @@ app.use(
       "http://localhost:3000",
       "https://enisivr.grss.in",
       "http://localhost:5173",
+"https://enis-crm.eniscloud.in",
+    "https://enis-crm-node.eniscloud.in"
     ],
     credentials: true,
   }),
