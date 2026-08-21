@@ -1617,3 +1617,59 @@ exports.getLeadNameByNumber = async (req, res) => {
     });
   }
 };
+
+// Runs every 30 minutes (see queues/scheduledJobs.js, "follow-up-missed-check").
+// For every assigned lead whose FollowDate has passed, notifies the assigned
+// rep once — tracked on lead.followUpMissedNotifiedAt so re-running the job
+// never re-notifies for the same FollowDate. Rescheduling the follow-up
+// (FollowDate moved forward) naturally re-arms this: the lead drops out of
+// the query until the new date, too, passes. Same idempotent-tracking-field
+// pattern as WhatsAppReminderControllers.processSiteVisitReminders.
+exports.flagMissedFollowUps = async (io) => {
+  const now = Date.now();
+  const summary = { notified: 0, failed: 0 };
+
+  const leads = await Lead.find({
+    FollowDate: { $lt: new Date(now) },
+    leadAssignedId: { $ne: null },
+  });
+
+  for (const lead of leads) {
+    const followDateTime = lead.FollowDate.getTime();
+    if (lead.followUpMissedNotifiedAt && lead.followUpMissedNotifiedAt.getTime() >= followDateTime) {
+      continue;
+    }
+
+    const leadName = `${lead.leadFirstName ?? ""} ${lead.leadLastName ?? ""}`.trim() || "A lead";
+    const dueDateLabel = lead.FollowDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+    try {
+      const notification = await Notification.create({
+        toEmployeeId: lead.leadAssignedId,
+        message: `Missed follow-up: "${leadName}" was due ${dueDateLabel}.`,
+        type: "followup-missed",
+        status: "unseen",
+        meta: { leadId: lead._id },
+      });
+
+      if (io) {
+        io.to(lead.leadAssignedId.toString()).emit("receiveNotification", notification);
+      }
+
+      lead.leadHistory = lead.leadHistory || [];
+      lead.leadHistory.push({
+        eventType: "Follow-up Missed",
+        details: `Follow-up due ${dueDateLabel} was not completed on time.`,
+      });
+      lead.followUpMissedNotifiedAt = new Date();
+      await lead.save();
+      summary.notified += 1;
+    } catch (error) {
+      summary.failed += 1;
+      console.error(`[Follow-up Sweep] Failed for lead ${lead._id}:`, error.message);
+    }
+  }
+
+  console.log(`[Follow-up Sweep] notified=${summary.notified} failed=${summary.failed}`);
+  return summary;
+};

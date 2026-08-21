@@ -18,6 +18,15 @@ const LeadSchema = new mongoose.Schema(
     FollowDate: {
       type: Date,
     },
+    // Set by LeadControllers.flagMissedFollowUps once it's notified the
+    // assigned rep that this FollowDate passed unactioned — compared against
+    // FollowDate itself (not just "is it set") so rescheduling the follow-up
+    // naturally re-arms the sweep instead of needing this cleared elsewhere.
+    // Same idempotency pattern as lead.siteVisitReminders below.
+    followUpMissedNotifiedAt: {
+      type: Date,
+      default: null,
+    },
     leadEmail: {
       type: String,
       lowercase: true,

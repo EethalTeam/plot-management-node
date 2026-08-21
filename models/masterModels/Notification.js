@@ -84,6 +84,7 @@ const notificationSchema = new mongoose.Schema(
         "leadStatus-change",
         "lead-assigned",
         "whatsapp-flow-completed",
+        "followup-missed",
         "general",
 
       ],

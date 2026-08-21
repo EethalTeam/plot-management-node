@@ -108,6 +108,18 @@ async function registerScheduledJobs() {
     },
   );
 
+  // Notifies a lead's assigned rep once their FollowDate passes unactioned —
+  // see LeadControllers.flagMissedFollowUps.
+  await scheduledQueue.add(
+    "follow-up-missed-check",
+    {},
+    {
+      ...defaults,
+      jobId: "follow-up-missed-check",
+      repeat: { every: 30 * 60 * 1000 },
+    },
+  );
+
   console.log("[BullMQ] Scheduled jobs registered");
 }
 
