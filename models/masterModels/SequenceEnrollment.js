@@ -6,7 +6,11 @@ const sequenceEnrollmentSchema = new mongoose.Schema(
   {
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: "Lead", required: true },
     sequenceId: { type: mongoose.Schema.Types.ObjectId, ref: "SequenceDefinition", required: true },
-    waid: { type: String, trim: true, required: true },
+    // Neither is required alone — a sequence can be email-only or
+    // WhatsApp-only — but sequenceEngine.tryEnrollNewLead only creates an
+    // enrollment when the lead has at least one of the two.
+    waid: { type: String, trim: true, default: null },
+    email: { type: String, trim: true, default: null },
     nextStepIndex: { type: Number, default: 0 },
     // null once completed — nothing left to schedule.
     nextSendAt: { type: Date, default: null },

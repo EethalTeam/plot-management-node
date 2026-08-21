@@ -1,6 +1,8 @@
 const SequenceDefinition = require("../models/masterModels/SequenceDefinition");
 const SequenceEnrollment = require("../models/masterModels/SequenceEnrollment");
+const EmailLog = require("../models/masterModels/EmailLog");
 const { sendTextMessage, sendTemplateMessage } = require("./whatsappOutbox");
+const emailOutbox = require("./emailOutbox");
 const { interpolate } = require("./messageInterpolation");
 
 const DELAY_MS = {
@@ -19,7 +21,15 @@ function resolveWaid(lead) {
   return lead.whatsapp_waid || digitsOnly(lead.leadPhone);
 }
 
-async function sendStep(step, lead, waid) {
+function resolveEmail(lead) {
+  return lead.leadEmail || null;
+}
+
+async function sendWhatsAppStep(step, lead, waid) {
+  if (!waid) {
+    console.log(`Sequence step skipped (lead ${lead._id} has no WhatsApp number)`);
+    return;
+  }
   if (step.messageType === "template") {
     if (!step.templateName) return;
     await sendTemplateMessage({
@@ -36,6 +46,48 @@ async function sendStep(step, lead, waid) {
   }
 }
 
+// Logs to EmailLog either way (mirrors EmailControllers.sendEmail) so a
+// drip step shows up in the same lead-detail email history as a manually
+// sent message — and doesn't rethrow, matching the fail-open pattern the
+// WhatsApp side already gets for free from advance()'s own try/catch.
+async function sendEmailStep(step, lead, email) {
+  if (!email) {
+    console.log(`Sequence step skipped (lead ${lead._id} has no email address)`);
+    return;
+  }
+
+  const subject = await interpolate(step.subject, {}, lead);
+  const body = await interpolate(step.text, {}, lead);
+  if (!subject && !body) return;
+
+  let status = "sent";
+  let errorMessage;
+  try {
+    await emailOutbox.sendEmail({ to: [email], subject, body });
+  } catch (error) {
+    status = "failed";
+    errorMessage = error.message;
+  }
+
+  await EmailLog.create({
+    to: [email],
+    subject,
+    body,
+    status,
+    errorMessage,
+    leadId: lead._id,
+    sentAt: new Date(),
+  });
+}
+
+async function sendStep(step, lead, enrollment) {
+  if (step.channel === "email") {
+    await sendEmailStep(step, lead, enrollment.email);
+  } else {
+    await sendWhatsAppStep(step, lead, enrollment.waid);
+  }
+}
+
 // Sends every step of `enrollment` that's currently due (delay elapsed
 // since the previous step, or since enrollment for step 0), advancing
 // nextStepIndex/nextSendAt as it goes, then stops once the next step isn't
@@ -44,8 +96,6 @@ async function sendStep(step, lead, waid) {
 // advances — same fail-open pattern as whatsappFlowEngine.js and the
 // existing site-visit reminders job.
 async function advance(enrollment, sequence, lead) {
-  const waid = enrollment.waid;
-
   // Checked fresh on every step, not just once at enrollment — a lead can
   // opt out hours or days after enrolling but before a later delayed step
   // fires. optInHandler.js already cancels the enrollment outright when it
@@ -65,7 +115,7 @@ async function advance(enrollment, sequence, lead) {
 
     const step = sequence.steps[enrollment.nextStepIndex];
     try {
-      await sendStep(step, lead, waid);
+      await sendStep(step, lead, enrollment);
     } catch (error) {
       console.error(
         `Sequence step send failed (enrollment ${enrollment._id}, step ${step.stepId}):`,
@@ -94,8 +144,9 @@ exports.tryEnrollNewLead = async (lead) => {
   if (lead.opt_in_status === "opted_out") return;
 
   const waid = resolveWaid(lead);
-  if (!waid) {
-    console.log(`Sequence enrollment skipped (no WhatsApp number) for lead ${lead._id}`);
+  const email = resolveEmail(lead);
+  if (!waid && !email) {
+    console.log(`Sequence enrollment skipped (no WhatsApp number or email) for lead ${lead._id}`);
     return;
   }
 
@@ -112,6 +163,7 @@ exports.tryEnrollNewLead = async (lead) => {
       leadId: lead._id,
       sequenceId: sequence._id,
       waid,
+      email,
       nextStepIndex: 0,
       nextSendAt: new Date(Date.now() + firstDelay),
       status: "active",

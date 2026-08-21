@@ -7,15 +7,23 @@ const sequenceStepSchema = new mongoose.Schema(
   {
     stepId: { type: String, required: true, trim: true },
     delay: { type: String, enum: ["immediately", "1h", "1d", "3d", "7d"], default: "immediately" },
+    // Per-step, not per-sequence, so one sequence can mix an immediate
+    // WhatsApp step with later email steps.
+    channel: { type: String, enum: ["whatsapp", "email"], default: "whatsapp" },
     // "text" only reliably sends inside Meta's 24h customer-service window —
     // realistically only true for an "immediately" first step sent right
     // after a fresh inbound message. Any step with a real delay needs a
     // pre-approved "template" instead, same rule as
     // controllers/mainControllers/WhatsAppReminderControllers.js.
+    // Only meaningful when channel is "whatsapp" — email steps always send
+    // "text" as an interpolated body (see subject below).
     messageType: { type: String, enum: ["text", "template"], default: "text" },
     text: { type: String, trim: true, default: "" },
     templateName: { type: String, trim: true },
     templateLanguageCode: { type: String, trim: true, default: "en_US" },
+    // Email-only. Interpolated the same way as `text` (see
+    // services/messageInterpolation.js).
+    subject: { type: String, trim: true, default: "" },
   },
   { _id: false },
 );
